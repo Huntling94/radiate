@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateTerrain } from './terrain.ts';
+import { generateTerrain, worldXZToBiomeCoords, biomeToWorldXZ } from './terrain.ts';
 import { createInitialState } from '../engine/factory.ts';
 
 function makeState(seed = 42) {
@@ -85,5 +85,47 @@ describe('generateTerrain', () => {
 
     const quads = (data.vertexWidth - 1) * (data.vertexHeight - 1);
     expect(data.indices.length).toBe(quads * 6);
+  });
+});
+
+describe('worldXZToBiomeCoords', () => {
+  it('round-trips with biomeToWorldXZ for interior biomes', () => {
+    const state = makeState();
+    const { gridWidth, gridHeight } = state.config;
+
+    // Pick a few interior biomes and check round-trip
+    for (const biome of state.biomes.slice(0, 10)) {
+      const [wx, wz] = biomeToWorldXZ(biome, gridWidth, gridHeight);
+      const { gx, gy } = worldXZToBiomeCoords(wx, wz, gridWidth, gridHeight);
+      expect(gx).toBe(biome.x);
+      expect(gy).toBe(biome.y);
+    }
+  });
+
+  it('clamps out-of-bounds positions to grid edges', () => {
+    const gridWidth = 12;
+    const gridHeight = 8;
+
+    // Far negative
+    const neg = worldXZToBiomeCoords(-9999, -9999, gridWidth, gridHeight);
+    expect(neg.gx).toBe(0);
+    expect(neg.gy).toBe(0);
+
+    // Far positive
+    const pos = worldXZToBiomeCoords(9999, 9999, gridWidth, gridHeight);
+    expect(pos.gx).toBe(gridWidth - 1);
+    expect(pos.gy).toBe(gridHeight - 1);
+  });
+
+  it('returns center biome for world origin', () => {
+    const gridWidth = 12;
+    const gridHeight = 8;
+
+    const { gx, gy } = worldXZToBiomeCoords(0, 0, gridWidth, gridHeight);
+    // Center of grid should be approximately middle
+    expect(gx).toBeGreaterThanOrEqual(Math.floor((gridWidth - 1) / 2) - 1);
+    expect(gx).toBeLessThanOrEqual(Math.ceil((gridWidth - 1) / 2) + 1);
+    expect(gy).toBeGreaterThanOrEqual(Math.floor((gridHeight - 1) / 2) - 1);
+    expect(gy).toBeLessThanOrEqual(Math.ceil((gridHeight - 1) / 2) + 1);
   });
 });

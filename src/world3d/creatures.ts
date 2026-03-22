@@ -99,6 +99,15 @@ function buildCreatureMesh(species: Species): THREE.Group {
   const eyeWhiteMat = new THREE.MeshToonMaterial({ color: 0xffffff });
   const pupilMat = new THREE.MeshToonMaterial({ color: 0x111111 });
 
+  // Enable shadow casting on all child meshes
+  const enableShadows = (obj: THREE.Object3D) => {
+    obj.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.castShadow = true;
+      }
+    });
+  };
+
   if (species.trophicLevel === 'producer') {
     // Mushroom-like: short stalk + round cap
     const stalk = new THREE.Mesh(
@@ -181,6 +190,7 @@ function buildCreatureMesh(species: Species): THREE.Group {
     }
   }
 
+  enableShadows(group);
   return group;
 }
 
@@ -251,6 +261,26 @@ export class CreatureManager {
         }
       }
     }
+  }
+
+  /**
+   * Resolve a hit mesh to its owning creature's species ID.
+   * Walks up the parent chain to find a creature group.
+   */
+  getSpeciesIdByMesh(hitObject: THREE.Object3D): string | null {
+    let current: THREE.Object3D | null = hitObject;
+    while (current) {
+      for (const creature of this.creatures) {
+        if (creature.mesh === current) return creature.speciesId;
+      }
+      current = current.parent;
+    }
+    return null;
+  }
+
+  /** Get all creature root groups for raycasting. */
+  getAllMeshGroups(): THREE.Group[] {
+    return this.creatures.filter((c) => c.mesh.visible).map((c) => c.mesh);
   }
 
   /**

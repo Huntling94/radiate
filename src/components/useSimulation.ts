@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { WorldState, Species } from '../engine/index.ts';
-import { createInitialState, tick, getTotalPopulation } from '../engine/index.ts';
+import type { WorldState, Species, SculptAction } from '../engine/index.ts';
+import { createInitialState, tick, getTotalPopulation, applySculpt } from '../engine/index.ts';
 import { saveWorld, loadWorld, clearWorld } from '../data/persistence.ts';
 
 // ---------------------------------------------------------------------------
@@ -69,6 +69,7 @@ export interface SimulationControls {
   togglePause: () => void;
   setTemperature: (temp: number) => void;
   setTickSpeed: (speed: TickSpeed) => void;
+  sculptBiomes: (actions: SculptAction[]) => void;
   newGame: () => void;
   dismissWelcome: () => void;
 }
@@ -150,6 +151,13 @@ export function useSimulation(seed = 42): SimulationControls {
     setWorldState((prev) => ({ ...prev, temperature: temp }));
   }, []);
 
+  const sculptBiomes = useCallback((actions: SculptAction[]) => {
+    setWorldState((prev) => ({
+      ...prev,
+      biomes: applySculpt(prev.biomes, actions, prev.temperature),
+    }));
+  }, []);
+
   const newGame = useCallback(() => {
     const newSeed = Math.floor(Math.random() * 1_000_000);
     const fresh = createInitialState(newSeed);
@@ -179,6 +187,7 @@ export function useSimulation(seed = 42): SimulationControls {
     togglePause,
     setTemperature,
     setTickSpeed,
+    sculptBiomes,
     newGame,
     dismissWelcome,
   };

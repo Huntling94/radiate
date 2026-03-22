@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useSimulation, formatElapsed } from './components/useSimulation.ts';
 import type { TickSpeed } from './components/useSimulation.ts';
 import { PopulationChart } from './components/PopulationChart.tsx';
@@ -7,7 +7,9 @@ import { SpeciesCard } from './components/SpeciesCard.tsx';
 import { TemperatureControl } from './components/TemperatureControl.tsx';
 import { EventLog } from './components/EventLog.tsx';
 import { PhylogeneticTree } from './components/PhylogeneticTree.tsx';
+import { SculptToolbar } from './components/SculptToolbar.tsx';
 import { World3D } from './world3d/World3D.tsx';
+import type { SculptTool } from './world3d/interaction.ts';
 import type { Species } from './engine/index.ts';
 
 type PanelTab = 'events' | 'chart' | 'tree';
@@ -31,6 +33,7 @@ export function App() {
     togglePause,
     setTemperature,
     setTickSpeed,
+    sculptBiomes,
     newGame,
     dismissWelcome,
   } = useSimulation();
@@ -38,6 +41,37 @@ export function App() {
   const [selectedSpeciesId, setSelectedSpeciesId] = useState<string | null>(null);
   const [panelTab, setPanelTab] = useState<PanelTab>('events');
   const [showDashboard, setShowDashboard] = useState(true);
+  const [activeTool, setActiveTool] = useState<SculptTool>('select');
+
+  // Keyboard shortcuts for tool switching
+  const handleToolKey = useCallback((e: KeyboardEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    switch (e.key) {
+      case 'q':
+      case 'Q':
+        setActiveTool('select');
+        break;
+      case '1':
+        setActiveTool('raise');
+        break;
+      case '2':
+        setActiveTool('lower');
+        break;
+      case '3':
+        setActiveTool('wet');
+        break;
+      case '4':
+        setActiveTool('dry');
+        break;
+    }
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleToolKey);
+    return () => {
+      window.removeEventListener('keydown', handleToolKey);
+    };
+  }, [handleToolKey]);
 
   // Auto-clear: if the selected ID no longer exists anywhere, treat as no selection
   const resolvedSelectedId =
@@ -61,7 +95,15 @@ export function App() {
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-neutral-950 text-neutral-100">
       {/* 3D world — full screen */}
-      <World3D worldState={worldState} />
+      <World3D
+        worldState={worldState}
+        activeTool={activeTool}
+        onSelectSpecies={setSelectedSpeciesId}
+        onSculpt={sculptBiomes}
+      />
+
+      {/* Sculpt toolbar */}
+      <SculptToolbar activeTool={activeTool} onToolChange={setActiveTool} />
 
       {/* Welcome back banner */}
       {welcomeMessage ? (

@@ -64,7 +64,8 @@ export function createCameraRig(canvas: HTMLCanvasElement): CameraRig {
     keys.delete(e.key.toLowerCase());
   };
   const onMouseDown = (e: MouseEvent) => {
-    if (e.button === 0 || e.button === 2) {
+    // Right-click only for orbit — left-click reserved for tool actions
+    if (e.button === 2) {
       isDragging = true;
       lastMouseX = e.clientX;
       lastMouseY = e.clientY;

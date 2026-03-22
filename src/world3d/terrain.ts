@@ -263,4 +263,26 @@ export function getWorldBounds(
   };
 }
 
+/**
+ * Convert world x/z position to biome grid coordinates.
+ * Inverse of biomeToWorldXZ. Returns fractional grid coords, clamped to grid bounds.
+ */
+export function worldXZToBiomeCoords(
+  wx: number,
+  wz: number,
+  gridWidth: number,
+  gridHeight: number,
+): { gx: number; gy: number } {
+  const worldWidth = (gridWidth - 1) * CELL_SIZE;
+  const worldDepth = (gridHeight - 1) * CELL_SIZE;
+
+  const nx = (wx + worldWidth / 2) / worldWidth;
+  const nz = (wz + worldDepth / 2) / worldDepth;
+
+  const gx = Math.max(0, Math.min(gridWidth - 1, Math.round(nx * (gridWidth - 1))));
+  const gy = Math.max(0, Math.min(gridHeight - 1, Math.round(nz * (gridHeight - 1))));
+
+  return { gx, gy };
+}
+
 export { CELL_SIZE, MAX_HEIGHT };

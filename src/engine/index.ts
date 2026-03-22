@@ -41,3 +41,6 @@ export { checkSpeciation } from './speciation.ts';
 export { computeFitnessModifier, updateBiomeTypes } from './environment.ts';
 
 export { generateSpeciesName } from './names.ts';
+
+export type { SculptAction } from './sculpt.ts';
+export { applySculpt } from './sculpt.ts';

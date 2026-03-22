@@ -1,16 +1,19 @@
 /**
  * React component hosting the Three.js 3D world view.
- * Manages canvas lifecycle, resize, creature lifecycle, and animation loop.
+ * Manages canvas lifecycle, resize, creature lifecycle, interaction, and animation loop.
  */
 
 import { useRef, useEffect } from 'react';
 import type { WorldState } from '../engine/index.ts';
+import type { SculptAction } from '../engine/index.ts';
 import { generateTerrain, getHeightAtWorldXZ } from './terrain.ts';
 import { createScene, updateTerrainMesh, resizeRenderer, renderFrame } from './scene.ts';
 import type { SceneContext } from './scene.ts';
 import { createCameraRig } from './camera.ts';
 import type { CameraRig } from './camera.ts';
 import { CreatureManager } from './creatures.ts';
+import { createInteraction } from './interaction.ts';
+import type { InteractionState, SculptTool } from './interaction.ts';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -18,27 +21,48 @@ import { CreatureManager } from './creatures.ts';
 
 interface World3DProps {
   worldState: WorldState;
+  activeTool?: SculptTool;
+  onSelectSpecies?: (speciesId: string | null) => void;
+  onSculpt?: (actions: SculptAction[]) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function World3D({ worldState }: World3DProps) {
+export function World3D({
+  worldState,
+  activeTool = 'select',
+  onSelectSpecies,
+  onSculpt,
+}: World3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<SceneContext | null>(null);
   const cameraRef = useRef<CameraRig | null>(null);
   const creaturesRef = useRef<CreatureManager | null>(null);
+  const interactionRef = useRef<InteractionState | null>(null);
   const rafRef = useRef<number>(0);
   const worldStateRef = useRef(worldState);
   const lastTimeRef = useRef(0);
+  const callbacksRef = useRef({ onSelectSpecies, onSculpt });
 
   useEffect(() => {
     worldStateRef.current = worldState;
   }, [worldState]);
 
-  // Initialise Three.js scene, camera, creatures
+  useEffect(() => {
+    callbacksRef.current = { onSelectSpecies, onSculpt };
+  }, [onSelectSpecies, onSculpt]);
+
+  // Sync active tool
+  useEffect(() => {
+    if (interactionRef.current) {
+      interactionRef.current.activeTool = activeTool;
+    }
+  }, [activeTool]);
+
+  // Initialise Three.js scene, camera, creatures, interaction
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -51,6 +75,26 @@ export function World3D({ worldState }: World3DProps) {
 
     const creatures = new CreatureManager(ctx.scene);
     creaturesRef.current = creatures;
+
+    const interaction = createInteraction(
+      canvas,
+      ctx.scene,
+      creatures,
+      {
+        onSelectSpecies: (id) => callbacksRef.current.onSelectSpecies?.(id),
+        onSculpt: (actions) => callbacksRef.current.onSculpt?.(actions),
+      },
+      () => ctx.terrainMesh,
+      () => {
+        const ws = worldStateRef.current;
+        return {
+          biomes: ws.biomes,
+          gridWidth: ws.config.gridWidth,
+          gridHeight: ws.config.gridHeight,
+        };
+      },
+    );
+    interactionRef.current = interaction;
 
     lastTimeRef.current = performance.now() / 1000;
 
@@ -68,6 +112,7 @@ export function World3D({ worldState }: World3DProps) {
       );
 
       creatures.update(delta, now);
+      interaction.update(cameraRig.camera);
 
       renderFrame(ctx, cameraRig.camera);
     }
@@ -75,11 +120,13 @@ export function World3D({ worldState }: World3DProps) {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
+      interaction.dispose();
       cameraRig.dispose();
       ctx.dispose();
       ctxRef.current = null;
       cameraRef.current = null;
       creaturesRef.current = null;
+      interactionRef.current = null;
     };
   }, []);
 

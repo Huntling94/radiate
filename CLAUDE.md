@@ -141,3 +141,6 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 | F-011 | Phylogenetic tree | v0.2 | Complete |
 | F-012 | 3D terrain with orbital camera (Phase 1) | v0.2 | Complete |
 | F-013 | Genome-driven 3D creatures with behaviour AI (Phase 2) | v0.2 | Complete |
+| F-014 | 3D visual polish: sky dome, PBR shading, shadows | v0.2 | Complete |
+| F-015 | Click-to-select creatures in 3D view | v0.2 | Complete |
+| F-016 | Terrain sculpting (elevation/moisture tools) | v0.2 | Complete |
