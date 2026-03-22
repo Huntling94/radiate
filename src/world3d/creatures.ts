@@ -503,17 +503,26 @@ export class CreatureManager {
     const dx = creature.position.x - predator.position.x;
     const dz = creature.position.z - predator.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz) || 1;
-    const fleeX = creature.position.x + (dx / dist) * WANDER_RADIUS;
-    const fleeZ = creature.position.z + (dz / dist) * WANDER_RADIUS;
-
-    // Clamp to world bounds
     const bounds = getWorldBounds(this.gridWidth, this.gridHeight);
-    const tx = Math.max(bounds.minX + 2, Math.min(bounds.maxX - 2, fleeX));
-    const tz = Math.max(bounds.minZ + 2, Math.min(bounds.maxZ - 2, fleeZ));
 
-    creature.targetPosition.set(tx, 0, tz);
-    creature.state = 'fleeing';
-    creature.stateTimer = 3;
+    // Try fleeing directly away; if uninhabitable, try shorter distances
+    for (let scale = 1.0; scale >= 0.3; scale -= 0.2) {
+      const fleeX = creature.position.x + (dx / dist) * WANDER_RADIUS * scale;
+      const fleeZ = creature.position.z + (dz / dist) * WANDER_RADIUS * scale;
+      const tx = Math.max(bounds.minX + 2, Math.min(bounds.maxX - 2, fleeX));
+      const tz = Math.max(bounds.minZ + 2, Math.min(bounds.maxZ - 2, fleeZ));
+
+      if (isPositionHabitable(tx, tz, this.biomes, this.gridWidth, this.gridHeight)) {
+        creature.targetPosition.set(tx, 0, tz);
+        creature.state = 'fleeing';
+        creature.stateTimer = 3;
+        return;
+      }
+    }
+
+    // No habitable flee target — stay put and hope for the best
+    creature.state = 'idle';
+    creature.stateTimer = IDLE_MIN;
   }
 
   private moveToward(
@@ -533,8 +542,16 @@ export class CreatureManager {
 
     // Move
     const step = Math.min(speed * delta, dist);
-    creature.position.x += (dx / dist) * step;
-    creature.position.z += (dz / dist) * step;
+    const nextX = creature.position.x + (dx / dist) * step;
+    const nextZ = creature.position.z + (dz / dist) * step;
+
+    // Reject move into uninhabitable terrain (ocean, mountain)
+    if (!isPositionHabitable(nextX, nextZ, this.biomes, this.gridWidth, this.gridHeight)) {
+      return true; // treat as arrived — stop and go idle
+    }
+
+    creature.position.x = nextX;
+    creature.position.z = nextZ;
 
     // Follow terrain
     creature.position.y = getHeightAtWorldXZ(
