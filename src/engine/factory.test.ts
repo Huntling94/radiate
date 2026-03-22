@@ -10,7 +10,7 @@ describe('createInitialState', () => {
     expect(state.tick).toBe(0);
     expect(state.elapsedSeconds).toBe(0);
     expect(state.temperature).toBe(20);
-    expect(state.biomes).toHaveLength(8 * 6);
+    expect(state.biomes).toHaveLength(12 * 8);
     expect(state.extinctSpeciesCount).toBe(0);
     expect(state.config.seed).toBe(42);
     expect(state.rngState).toBeDefined();
@@ -21,9 +21,9 @@ describe('createInitialState', () => {
 
     for (const biome of state.biomes) {
       expect(biome.x).toBeGreaterThanOrEqual(0);
-      expect(biome.x).toBeLessThan(8);
+      expect(biome.x).toBeLessThan(12);
       expect(biome.y).toBeGreaterThanOrEqual(0);
-      expect(biome.y).toBeLessThan(6);
+      expect(biome.y).toBeLessThan(8);
     }
   });
 

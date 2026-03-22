@@ -8,11 +8,14 @@ export type {
   RngState,
   TraitDefinition,
   Traits,
+  SimEvent,
+  SimEventType,
 } from './types.ts';
 
 export {
   TRAIT_REGISTRY,
   GENOME_LENGTH,
+  MAX_EVENTS,
   expressTraits,
   getBiome,
   getTotalPopulation,

@@ -18,8 +18,8 @@ const DEFAULT_CONFIG: SimConfig = {
   mutationRate: 0.05,
   mutationMagnitude: 0.1,
   speciationThreshold: 1.5,
-  gridWidth: 8,
-  gridHeight: 6,
+  gridWidth: 12,
+  gridHeight: 8,
 };
 
 const DEFAULT_TEMPERATURE = 20;
@@ -178,5 +178,6 @@ export function createInitialState(seed: number): WorldState {
     extinctSpeciesCount: 0,
     config,
     rngState: rng.getState(),
+    events: [],
   };
 }

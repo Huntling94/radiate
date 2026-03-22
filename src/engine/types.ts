@@ -28,6 +28,27 @@ export interface WorldState {
   config: SimConfig;
   /** Serialisable PRNG state — persisted with the world for deterministic continuation */
   rngState: RngState;
+  /** Recent simulation events with causal attribution (capped at MAX_EVENTS) */
+  events: SimEvent[];
+}
+
+export const MAX_EVENTS = 200;
+
+export type SimEventType = 'speciation' | 'extinction' | 'milestone';
+
+export interface SimEvent {
+  /** Unique event ID */
+  id: string;
+  /** Tick when the event occurred */
+  tick: number;
+  /** Event category */
+  type: SimEventType;
+  /** Human-readable description */
+  description: string;
+  /** Causal explanation */
+  cause: string;
+  /** Related species ID, if any */
+  speciesId: string | null;
 }
 
 // ---------------------------------------------------------------------------

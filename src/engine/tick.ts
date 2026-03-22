@@ -6,8 +6,9 @@
  * See ADR-002 (tick loop) and ADR-003 (population dynamics).
  */
 
-import type { WorldState, Species } from './types.ts';
-import { expressTraits } from './types.ts';
+import type { WorldState, Species, SimEvent } from './types.ts';
+import { expressTraits, MAX_EVENTS } from './types.ts';
+import { geneticDistance } from './genome.ts';
 import { createRngFromState } from './rng.ts';
 import type { Rng } from './rng.ts';
 import { computeInteractionMatrix } from './interactions.ts';
@@ -198,14 +199,84 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
     currentSpecies = currentSpecies.filter((s) => Object.keys(s.populationByBiome).length > 0);
   }
 
+  // Collect events
+  const newEvents: SimEvent[] = [];
+  let nextEventId = state.events.length;
+
   // Check for speciation events
   const finalTick = state.tick + steps;
   const speciationResult = checkSpeciation(currentSpecies, finalTick, rng, state.config);
   currentSpecies = speciationResult.species;
 
-  // Count extinctions
+  // Record speciation events
+  for (const evt of speciationResult.events) {
+    const parent = currentSpecies.find((s) => s.id === evt.parentId);
+    const child = currentSpecies.find((s) => s.id === evt.childId);
+    const dist = parent && child ? geneticDistance(parent.originalGenome, child.genome) : 0;
+
+    // Find which traits diverged most
+    const traitDiffs: Array<{ name: string; diff: number }> = [];
+    if (parent && child) {
+      const parentTraits = expressTraits(parent.originalGenome);
+      const childTraits = expressTraits(child.genome);
+      for (const [key, val] of Object.entries(childTraits)) {
+        const diff = val - parentTraits[key as keyof typeof parentTraits];
+        if (Math.abs(diff) > 0.05) {
+          traitDiffs.push({ name: key, diff });
+        }
+      }
+    }
+    traitDiffs.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    const topTraits = traitDiffs
+      .slice(0, 2)
+      .map((t) => `${t.name} ${t.diff > 0 ? '+' : ''}${t.diff.toFixed(2)}`)
+      .join(', ');
+
+    newEvents.push({
+      id: `evt-${String(nextEventId++)}`,
+      tick: finalTick,
+      type: 'speciation',
+      description: `${evt.childName} branched from ${parent?.name ?? 'unknown'}`,
+      cause: `Genetic distance ${dist.toFixed(2)} exceeded threshold. ${topTraits ? `Key traits: ${topTraits}` : ''}`,
+      speciesId: evt.childId,
+    });
+  }
+
+  // Record extinction events
   const survivors = new Set(currentSpecies.map((s) => s.id));
-  const extinctions = state.species.filter((s) => !survivors.has(s.id)).length;
+  const extinctSpecies = state.species.filter((s) => !survivors.has(s.id));
+
+  for (const extinct of extinctSpecies) {
+    const totalPop = Object.values(extinct.populationByBiome).reduce((sum, p) => sum + p, 0);
+    let cause = 'Population declined below survival threshold.';
+    if (extinct.trophicLevel !== 'producer') {
+      const hadPrey = state.species.some(
+        (s) =>
+          s.id !== extinct.id &&
+          survivors.has(s.id) &&
+          ((extinct.trophicLevel === 'herbivore' && s.trophicLevel === 'producer') ||
+            (extinct.trophicLevel === 'predator' && s.trophicLevel === 'herbivore')),
+      );
+      if (!hadPrey) {
+        cause = 'Starvation — no prey species available.';
+      }
+    }
+    if (totalPop <= 0) {
+      cause = 'Population collapsed to zero across all biomes. ' + cause;
+    }
+
+    newEvents.push({
+      id: `evt-${String(nextEventId++)}`,
+      tick: finalTick,
+      type: 'extinction',
+      description: `${extinct.name} went extinct`,
+      cause,
+      speciesId: extinct.id,
+    });
+  }
+
+  // Merge and cap events
+  const allEvents = [...state.events, ...newEvents].slice(-MAX_EVENTS);
 
   return {
     ...state,
@@ -214,7 +285,8 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
     lastTimestamp: Date.now(),
     biomes,
     species: currentSpecies,
-    extinctSpeciesCount: state.extinctSpeciesCount + extinctions,
+    extinctSpeciesCount: state.extinctSpeciesCount + extinctSpecies.length,
     rngState: rng.getState(),
+    events: allEvents,
   };
 }

@@ -6,9 +6,10 @@ interface BiomeMapProps {
   worldState: WorldState;
 }
 
-const CELL_SIZE = 72;
+const MIN_CELL_SIZE = 40;
+const MAX_CELL_SIZE = 80;
 const CELL_GAP = 3;
-const CELL_RADIUS = 6;
+const CELL_RADIUS = 5;
 
 const TROPHIC_DOT_COLOURS: Record<string, string> = {
   producer: '#22c55e',
@@ -24,12 +25,33 @@ interface TooltipData {
 }
 
 export function BiomeMap({ worldState }: BiomeMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
+  const [cellSize, setCellSize] = useState(60);
 
   const { gridWidth, gridHeight } = worldState.config;
-  const canvasWidth = gridWidth * (CELL_SIZE + CELL_GAP) - CELL_GAP;
-  const canvasHeight = gridHeight * (CELL_SIZE + CELL_GAP) - CELL_GAP;
+  const canvasWidth = gridWidth * (cellSize + CELL_GAP) - CELL_GAP;
+  const canvasHeight = gridHeight * (cellSize + CELL_GAP) - CELL_GAP;
+
+  // Compute cell size from container width
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0] as ResizeObserverEntry | undefined;
+      if (!entry) return;
+      const availableWidth = entry.contentRect.width;
+      const computed = Math.floor((availableWidth + CELL_GAP) / gridWidth) - CELL_GAP;
+      setCellSize(Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, computed)));
+    });
+
+    observer.observe(container);
+    return () => {
+      observer.disconnect();
+    };
+  }, [gridWidth]);
 
   // Draw the map
   useEffect(() => {
@@ -41,26 +63,25 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
     for (const biome of worldState.biomes) {
-      const x = biome.x * (CELL_SIZE + CELL_GAP);
-      const y = biome.y * (CELL_SIZE + CELL_GAP);
+      const x = biome.x * (cellSize + CELL_GAP);
+      const y = biome.y * (cellSize + CELL_GAP);
 
       // Rounded rect with biome colour
-      const baseColour = BIOME_COLOURS[biome.biomeType];
       ctx.beginPath();
-      ctx.roundRect(x, y, CELL_SIZE, CELL_SIZE, CELL_RADIUS);
-      ctx.fillStyle = baseColour;
+      ctx.roundRect(x, y, cellSize, cellSize, CELL_RADIUS);
+      ctx.fillStyle = BIOME_COLOURS[biome.biomeType];
       ctx.fill();
 
-      // Subtle elevation gradient (lighter at top = higher)
-      const grad = ctx.createLinearGradient(x, y, x, y + CELL_SIZE);
+      // Elevation gradient
+      const grad = ctx.createLinearGradient(x, y, x, y + cellSize);
       grad.addColorStop(0, `rgba(255,255,255,${(biome.elevation * 0.15).toFixed(2)})`);
       grad.addColorStop(1, `rgba(0,0,0,${(biome.elevation * 0.1).toFixed(2)})`);
       ctx.beginPath();
-      ctx.roundRect(x, y, CELL_SIZE, CELL_SIZE, CELL_RADIUS);
+      ctx.roundRect(x, y, cellSize, cellSize, CELL_RADIUS);
       ctx.fillStyle = grad;
       ctx.fill();
 
-      // Species segments — proportional coloured bars at bottom of cell
+      // Species proportional bars at bottom
       const speciesInBiome: Array<{ colour: string; pop: number }> = [];
       for (const species of worldState.species) {
         const pop = species.populationByBiome[biome.id];
@@ -74,10 +95,10 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
 
       if (speciesInBiome.length > 0) {
         const totalPop = speciesInBiome.reduce((sum, s) => sum + s.pop, 0);
-        const barHeight = 8;
-        const barY = y + CELL_SIZE - barHeight - 4;
-        const barWidth = CELL_SIZE - 8;
-        let barX = x + 4;
+        const barHeight = Math.max(4, cellSize * 0.12);
+        const barY = y + cellSize - barHeight - 3;
+        const barWidth = cellSize - 6;
+        let barX = x + 3;
 
         for (const entry of speciesInBiome) {
           const segWidth = (entry.pop / totalPop) * barWidth;
@@ -87,19 +108,9 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
           ctx.globalAlpha = 1.0;
           barX += segWidth;
         }
-
-        // Population density indicator — subtle white overlay proportional to total pop
-        const maxPop = biome.baseCarryingCapacity * worldState.species.length;
-        if (maxPop > 0) {
-          const density = Math.min(totalPop / maxPop, 1);
-          ctx.beginPath();
-          ctx.roundRect(x, y, CELL_SIZE, CELL_SIZE, CELL_RADIUS);
-          ctx.fillStyle = `rgba(255,255,255,${(density * 0.08).toFixed(3)})`;
-          ctx.fill();
-        }
       }
     }
-  }, [worldState, canvasWidth, canvasHeight]);
+  }, [worldState, canvasWidth, canvasHeight, cellSize]);
 
   // Hover detection
   const handleMouseMove = useCallback(
@@ -110,13 +121,12 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      const gridX = Math.floor(mx / (CELL_SIZE + CELL_GAP));
-      const gridY = Math.floor(my / (CELL_SIZE + CELL_GAP));
+      const gridX = Math.floor(mx / (cellSize + CELL_GAP));
+      const gridY = Math.floor(my / (cellSize + CELL_GAP));
 
-      // Check if within a cell (not in the gap)
-      const cellX = gridX * (CELL_SIZE + CELL_GAP);
-      const cellY = gridY * (CELL_SIZE + CELL_GAP);
-      if (mx < cellX || mx > cellX + CELL_SIZE || my < cellY || my > cellY + CELL_SIZE) {
+      const cx = gridX * (cellSize + CELL_GAP);
+      const cy = gridY * (cellSize + CELL_GAP);
+      if (mx < cx || mx > cx + cellSize || my < cy || my > cy + cellSize) {
         setTooltip(null);
         return;
       }
@@ -138,7 +148,7 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
 
       setTooltip({ biome, speciesInBiome, x: e.clientX, y: e.clientY });
     },
-    [worldState],
+    [worldState, cellSize],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -146,9 +156,12 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
   }, []);
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative w-full">
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-neutral-500">
         World Map
+        <span className="ml-2 font-normal text-neutral-600">
+          {String(gridWidth)}x{String(gridHeight)}
+        </span>
       </h2>
       <canvas
         ref={canvasRef}

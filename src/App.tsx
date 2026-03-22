@@ -4,6 +4,7 @@ import { BiomeMap } from './components/BiomeMap.tsx';
 import { PopulationChart } from './components/PopulationChart.tsx';
 import { SpeciesList } from './components/SpeciesList.tsx';
 import { TemperatureControl } from './components/TemperatureControl.tsx';
+import { EventLog } from './components/EventLog.tsx';
 
 const TICK_SPEEDS: TickSpeed[] = [0.5, 1, 2, 5];
 
@@ -40,7 +41,7 @@ export function App() {
       ) : null}
 
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-neutral-800/50 px-5 py-2.5">
+      <header className="flex items-center justify-between border-b border-neutral-800/50 px-5 py-2">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold tracking-tight text-emerald-400">Radiate</h1>
           <span className="text-[10px] text-neutral-600">v0.2</span>
@@ -103,29 +104,35 @@ export function App() {
 
       {/* Main content */}
       <div className="flex min-h-0 flex-1">
-        {/* Left: Biome map + temperature */}
-        <div className="flex flex-1 flex-col overflow-auto p-5">
-          <BiomeMap worldState={worldState} />
-          <div className="mt-4 max-w-sm">
-            <TemperatureControl
-              temperature={worldState.temperature}
-              onTemperatureChange={setTemperature}
-            />
+        {/* Left: Map + Event log + Chart */}
+        <div className="flex flex-1 flex-col overflow-auto">
+          {/* Map area */}
+          <div className="flex-1 p-5">
+            <BiomeMap worldState={worldState} />
+          </div>
+
+          {/* Event log */}
+          <div className="border-t border-neutral-800/50 px-5 py-3">
+            <EventLog events={worldState.events} />
+          </div>
+
+          {/* Population chart */}
+          <div className="border-t border-neutral-800/50 px-5 py-3">
+            <PopulationChart history={populationHistory} speciesIds={speciesIds} />
           </div>
         </div>
 
-        {/* Right: Species list */}
-        <div className="w-72 overflow-auto border-l border-neutral-800/50 p-4">
+        {/* Right sidebar: Species + Temperature */}
+        <div className="flex w-72 flex-col gap-4 overflow-auto border-l border-neutral-800/50 p-4">
+          <TemperatureControl
+            temperature={worldState.temperature}
+            onTemperatureChange={setTemperature}
+          />
           <SpeciesList
             species={speciesWithPopulation}
             extinctCount={worldState.extinctSpeciesCount}
           />
         </div>
-      </div>
-
-      {/* Bottom: Population chart */}
-      <div className="border-t border-neutral-800/50 px-5 py-3">
-        <PopulationChart history={populationHistory} speciesIds={speciesIds} />
       </div>
     </div>
   );
