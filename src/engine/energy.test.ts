@@ -4,8 +4,11 @@ import {
   temperatureFactor,
   computeBiomeEnergy,
   computeProducerK,
+  metabolismKModifier,
+  computeHerbivoreK,
+  computePredatorK,
 } from './energy.ts';
-import type { Biome } from './types.ts';
+import type { Biome, Species } from './types.ts';
 
 function makeBiome(overrides: Partial<Biome> = {}): Biome {
   return {
@@ -117,5 +120,119 @@ describe('computeProducerK', () => {
     const desert = makeBiome({ biomeType: 'desert', moisture: 0.0 });
     const k = computeProducerK(desert, -10);
     expect(k).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Consumer K (BRF-014)
+// ---------------------------------------------------------------------------
+
+function makeSpecies(overrides: Partial<Species> = {}): Species {
+  return {
+    id: 's0',
+    name: 'Test Species',
+    genome: [0.5, 0.5, 0.5, 0.5, 1.0, 0.5], // metabolism = 1.0 (neutral)
+    originalGenome: [0.5, 0.5, 0.5, 0.5, 1.0, 0.5],
+    populationByBiome: {},
+    trophicLevel: 'herbivore',
+    parentSpeciesId: null,
+    originTick: 0,
+    generation: 0,
+    ...overrides,
+  };
+}
+
+describe('metabolismKModifier', () => {
+  it('returns ~1.0 for metabolism 1.0', () => {
+    const species = makeSpecies({ genome: [0.5, 0.5, 0.5, 0.5, 1.0, 0.5] });
+    expect(metabolismKModifier(species)).toBeCloseTo(1.0);
+  });
+
+  it('returns > 1.0 for low metabolism (K-strategist)', () => {
+    const species = makeSpecies({ genome: [0.5, 0.5, 0.5, 0.5, 0.1, 0.5] });
+    expect(metabolismKModifier(species)).toBeGreaterThan(1.0);
+  });
+
+  it('returns < 1.0 for high metabolism (r-strategist)', () => {
+    const species = makeSpecies({ genome: [0.5, 0.5, 0.5, 0.5, 2.0, 0.5] });
+    expect(metabolismKModifier(species)).toBeLessThan(1.0);
+  });
+});
+
+describe('computeHerbivoreK', () => {
+  it('increases with more producers in the biome', () => {
+    const herbivore = makeSpecies({ trophicLevel: 'herbivore' });
+    const producer = makeSpecies({ id: 'p0', trophicLevel: 'producer' });
+
+    const lowPops = new Map([['b0', [50, 0]]]);
+    const highPops = new Map([['b0', [200, 0]]]);
+    const species = [producer, herbivore];
+
+    const kLow = computeHerbivoreK('b0', herbivore, lowPops, species);
+    const kHigh = computeHerbivoreK('b0', herbivore, highPops, species);
+    expect(kHigh).toBeGreaterThan(kLow);
+  });
+
+  it('returns MIN_CONSUMER_K with zero producers', () => {
+    const herbivore = makeSpecies({ trophicLevel: 'herbivore' });
+    const producer = makeSpecies({ id: 'p0', trophicLevel: 'producer' });
+
+    const pops = new Map([['b0', [0, 0]]]);
+    const k = computeHerbivoreK('b0', herbivore, pops, [producer, herbivore]);
+    expect(k).toBe(5); // MIN_CONSUMER_K
+  });
+
+  it('high-metabolism herbivore gets lower K than low-metabolism', () => {
+    const producer = makeSpecies({ id: 'p0', trophicLevel: 'producer' });
+    const pops = new Map([['b0', [500, 0, 0]]]);
+
+    const lowMeta = makeSpecies({
+      id: 'h-low',
+      trophicLevel: 'herbivore',
+      genome: [0.5, 0.5, 0.5, 0.5, 0.1, 0.5],
+    });
+    const highMeta = makeSpecies({
+      id: 'h-high',
+      trophicLevel: 'herbivore',
+      genome: [0.5, 0.5, 0.5, 0.5, 2.0, 0.5],
+    });
+
+    const kLow = computeHerbivoreK('b0', lowMeta, pops, [producer, lowMeta, highMeta]);
+    const kHigh = computeHerbivoreK('b0', highMeta, pops, [producer, lowMeta, highMeta]);
+    expect(kLow).toBeGreaterThan(kHigh);
+  });
+
+  it('applies ~10% transfer efficiency', () => {
+    const herbivore = makeSpecies({ trophicLevel: 'herbivore' }); // metabolism=1.0 → modifier=1.0
+    const producer = makeSpecies({ id: 'p0', trophicLevel: 'producer' });
+
+    const pops = new Map([['b0', [1000, 0]]]);
+    const k = computeHerbivoreK('b0', herbivore, pops, [producer, herbivore]);
+    // 1000 × 0.10 × 1.0 = 100
+    expect(k).toBeCloseTo(100);
+  });
+});
+
+describe('computePredatorK', () => {
+  it('increases with more herbivores in the biome', () => {
+    const predator = makeSpecies({ trophicLevel: 'predator' });
+    const herbivore = makeSpecies({ id: 'h0', trophicLevel: 'herbivore' });
+
+    const lowPops = new Map([['b0', [0, 20]]]);
+    const highPops = new Map([['b0', [0, 100]]]);
+    const species = [predator, herbivore];
+
+    const kLow = computePredatorK('b0', predator, lowPops, species);
+    const kHigh = computePredatorK('b0', predator, highPops, species);
+    expect(kHigh).toBeGreaterThan(kLow);
+  });
+
+  it('returns MIN_CONSUMER_K with zero herbivores', () => {
+    const predator = makeSpecies({ trophicLevel: 'predator' });
+    const herbivore = makeSpecies({ id: 'h0', trophicLevel: 'herbivore' });
+
+    const pops = new Map([['b0', [0, 0]]]);
+    const k = computePredatorK('b0', predator, pops, [predator, herbivore]);
+    expect(k).toBe(5);
   });
 });

@@ -16,7 +16,7 @@ import type { InteractionMatrix } from './interactions.ts';
 import { mutateGenome } from './genome.ts';
 import { checkSpeciation } from './speciation.ts';
 import { computeFitnessModifier, updateBiomeTypes } from './environment.ts';
-import { computeProducerK } from './energy.ts';
+import { computeProducerK, computeHerbivoreK, computePredatorK } from './energy.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -129,12 +129,10 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
   // Update biome types based on current temperature
   const biomes = updateBiomeTypes(state.biomes, state.temperature);
 
-  // Build carrying capacity lookups: energy-derived for producers, base for consumers
+  // Build producer carrying capacity from biome energy (stable within tick)
   const producerCarryingCapacity = new Map<string, number>();
-  const consumerCarryingCapacity = new Map<string, number>();
   for (const biome of biomes) {
     producerCarryingCapacity.set(biome.id, computeProducerK(biome, state.temperature));
-    consumerCarryingCapacity.set(biome.id, biome.baseCarryingCapacity);
   }
 
   // Deep clone species populations and genomes for mutation
@@ -170,34 +168,62 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
       biomePopulations.set(biomeId, pops);
     }
 
-    // Update each species in each biome
-    for (let i = 0; i < currentSpecies.length; i++) {
-      const species = currentSpecies[i];
-      const fitness = computeFitnessModifier(species, state.temperature);
-      const biomeIds = Object.keys(species.populationByBiome);
+    // Update species by trophic level: producers → herbivores → predators
+    // Each level's K depends on updated populations from the level below.
+    const trophicOrder: Array<'producer' | 'herbivore' | 'predator'> = [
+      'producer',
+      'herbivore',
+      'predator',
+    ];
 
-      for (const biomeId of biomeIds) {
-        const k =
-          species.trophicLevel === 'producer'
-            ? (producerCarryingCapacity.get(biomeId) ?? 0)
-            : (consumerCarryingCapacity.get(biomeId) ?? 0);
-        const newPop = updateSpeciesPopulation(
-          i,
-          biomeId,
-          biomePopulations,
-          k,
-          stepSize,
-          fitness,
-          rng,
-          matrix,
-          species,
-        );
+    for (const trophic of trophicOrder) {
+      for (let i = 0; i < currentSpecies.length; i++) {
+        const species = currentSpecies[i];
+        if (species.trophicLevel !== trophic) continue;
 
-        if (newPop <= 0) {
-          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
-          delete species.populationByBiome[biomeId];
-        } else {
-          species.populationByBiome[biomeId] = newPop;
+        const fitness = computeFitnessModifier(species, state.temperature);
+        const biomeIds = Object.keys(species.populationByBiome);
+
+        for (const biomeId of biomeIds) {
+          let k: number;
+          if (trophic === 'producer') {
+            k = producerCarryingCapacity.get(biomeId) ?? 0;
+          } else if (trophic === 'herbivore') {
+            k = computeHerbivoreK(biomeId, species, biomePopulations, currentSpecies);
+          } else {
+            k = computePredatorK(biomeId, species, biomePopulations, currentSpecies);
+          }
+
+          const newPop = updateSpeciesPopulation(
+            i,
+            biomeId,
+            biomePopulations,
+            k,
+            stepSize,
+            fitness,
+            rng,
+            matrix,
+            species,
+          );
+
+          if (newPop <= 0) {
+            // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+            delete species.populationByBiome[biomeId];
+          } else {
+            species.populationByBiome[biomeId] = newPop;
+          }
+        }
+      }
+
+      // Rebuild biome populations after each trophic phase so the next level
+      // sees updated counts from the level below
+      if (trophic !== 'predator') {
+        for (const biomeId of allBiomeIds) {
+          const pops: number[] = [];
+          for (const sp of currentSpecies) {
+            pops.push(sp.populationByBiome[biomeId] ?? 0);
+          }
+          biomePopulations.set(biomeId, pops);
         }
       }
     }

@@ -50,4 +50,7 @@ export {
   temperatureFactor,
   computeBiomeEnergy,
   computeProducerK,
+  metabolismKModifier,
+  computeHerbivoreK,
+  computePredatorK,
 } from './energy.ts';
