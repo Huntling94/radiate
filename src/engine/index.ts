@@ -29,3 +29,11 @@ export { tick } from './tick.ts';
 
 export type { InteractionMatrix } from './interactions.ts';
 export { computeInteractionMatrix, computePairInteraction } from './interactions.ts';
+
+export { mutateGenome, geneticDistance, clampGenome } from './genome.ts';
+
+export { checkSpeciation } from './speciation.ts';
+
+export { computeFitnessModifier, updateBiomeTypes } from './environment.ts';
+
+export { generateSpeciesName } from './names.ts';

@@ -9,6 +9,13 @@ interface BiomeMapProps {
 const CELL_SIZE = 48;
 const CELL_GAP = 2;
 
+// Species colours by trophic level
+const TROPHIC_DOT_COLOURS: Record<string, string> = {
+  producer: '#22c55e',
+  herbivore: '#eab308',
+  predator: '#ef4444',
+};
+
 export function BiomeMap({ worldState }: BiomeMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -23,16 +30,7 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
-    // Compute max population across all biomes for normalisation
-    let maxPop = 0;
-    for (const species of worldState.species) {
-      for (const pop of Object.values(species.populationByBiome)) {
-        if (pop > maxPop) maxPop = pop;
-      }
-    }
 
     // Draw biomes
     for (const biome of worldState.biomes) {
@@ -43,24 +41,42 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
       ctx.fillStyle = BIOME_COLOURS[biome.biomeType];
       ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
 
-      // Species population overlay — brighter = more populated
-      if (maxPop > 0) {
-        let biomePop = 0;
-        for (const species of worldState.species) {
-          biomePop += species.populationByBiome[biome.id] ?? 0;
+      // Draw coloured dots for each species present in this biome
+      const speciesInBiome: Array<{ colour: string; pop: number }> = [];
+      for (const species of worldState.species) {
+        const pop = species.populationByBiome[biome.id];
+        if (pop && pop > 0) {
+          speciesInBiome.push({
+            colour: TROPHIC_DOT_COLOURS[species.trophicLevel] ?? '#ffffff',
+            pop,
+          });
         }
+      }
 
-        if (biomePop > 0) {
-          const intensity = Math.min(biomePop / maxPop, 1);
-          ctx.fillStyle = `rgba(255, 255, 255, ${(intensity * 0.4).toFixed(2)})`;
-          ctx.fillRect(x, y, CELL_SIZE, CELL_SIZE);
+      // Sort by population (largest first) and take top 5
+      speciesInBiome.sort((a, b) => b.pop - a.pop);
+      const toShow = speciesInBiome.slice(0, 5);
 
-          // Population dot indicator
-          const dotSize = 4 + intensity * 8;
+      if (toShow.length > 0) {
+        // Find max pop for scaling
+        const maxPop = Math.max(...toShow.map((s) => s.pop));
+
+        // Position dots in a row within the cell
+        const dotSpacing = CELL_SIZE / (toShow.length + 1);
+
+        for (let i = 0; i < toShow.length; i++) {
+          const entry = toShow[i];
+          const intensity = Math.min(entry.pop / maxPop, 1);
+          const dotSize = 3 + intensity * 5;
+          const dotX = x + dotSpacing * (i + 1);
+          const dotY = y + CELL_SIZE / 2;
+
           ctx.beginPath();
-          ctx.arc(x + CELL_SIZE / 2, y + CELL_SIZE / 2, dotSize, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255, 255, 255, ${(0.5 + intensity * 0.5).toFixed(2)})`;
+          ctx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
+          ctx.fillStyle = entry.colour;
+          ctx.globalAlpha = 0.5 + intensity * 0.5;
           ctx.fill();
+          ctx.globalAlpha = 1.0;
         }
       }
     }
@@ -77,6 +93,20 @@ export function BiomeMap({ worldState }: BiomeMapProps) {
         height={canvasHeight}
         className="rounded-lg border border-neutral-800"
       />
+      <div className="mt-2 flex gap-4 text-xs text-neutral-500">
+        <span>
+          <span className="mr-1 inline-block h-2 w-2 rounded-full bg-green-500" />
+          Producer
+        </span>
+        <span>
+          <span className="mr-1 inline-block h-2 w-2 rounded-full bg-amber-400" />
+          Herbivore
+        </span>
+        <span>
+          <span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" />
+          Predator
+        </span>
+      </div>
     </div>
   );
 }

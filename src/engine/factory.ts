@@ -128,37 +128,31 @@ function createSeedSpecies(rng: Rng, biomes: Biome[]): Species[] {
   // Add slight random variation to genomes for uniqueness
   const varyGenome = (base: number[]): number[] => base.map((v) => v + rng.nextGaussian() * 0.02);
 
+  const makeSpecies = (
+    id: string,
+    name: string,
+    baseGenome: number[],
+    pop: Record<string, number>,
+    trophicLevel: 'producer' | 'herbivore' | 'predator',
+  ): Species => {
+    const genome = varyGenome(baseGenome);
+    return {
+      id,
+      name,
+      genome,
+      originalGenome: [...genome],
+      populationByBiome: pop,
+      trophicLevel,
+      parentSpeciesId: null,
+      originTick: 0,
+      generation: 0,
+    };
+  };
+
   return [
-    {
-      id: 'species-0',
-      name: 'Proto Alga',
-      genome: varyGenome(producerGenome),
-      populationByBiome: producerPop,
-      trophicLevel: 'producer',
-      parentSpeciesId: null,
-      originTick: 0,
-      generation: 0,
-    },
-    {
-      id: 'species-1',
-      name: 'Grazer',
-      genome: varyGenome([0.6, 0.5, 0.4, 0.4, 0.5, 0.5]),
-      populationByBiome: herbivorePop,
-      trophicLevel: 'herbivore',
-      parentSpeciesId: null,
-      originTick: 0,
-      generation: 0,
-    },
-    {
-      id: 'species-2',
-      name: 'Stalker',
-      genome: varyGenome([0.8, 0.9, 0.3, 0.3, 0.7, 0.3]),
-      populationByBiome: predatorPop,
-      trophicLevel: 'predator',
-      parentSpeciesId: null,
-      originTick: 0,
-      generation: 0,
-    },
+    makeSpecies('species-0', 'Proto Alga', producerGenome, producerPop, 'producer'),
+    makeSpecies('species-1', 'Grazer', [0.6, 0.5, 0.4, 0.4, 0.5, 0.5], herbivorePop, 'herbivore'),
+    makeSpecies('species-2', 'Stalker', [0.8, 0.9, 0.3, 0.3, 0.7, 0.3], predatorPop, 'predator'),
   ];
 }
 

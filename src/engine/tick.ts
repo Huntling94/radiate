@@ -12,6 +12,9 @@ import { createRngFromState } from './rng.ts';
 import type { Rng } from './rng.ts';
 import { computeInteractionMatrix } from './interactions.ts';
 import type { InteractionMatrix } from './interactions.ts';
+import { mutateGenome } from './genome.ts';
+import { checkSpeciation } from './speciation.ts';
+import { computeFitnessModifier, updateBiomeTypes } from './environment.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -38,6 +41,7 @@ function updateSpeciesPopulation(
   populations: Map<string, number[]>,
   carryingCapacity: number,
   stepSize: number,
+  fitnessModifier: number,
   rng: Rng,
   matrix: InteractionMatrix,
   species: Species,
@@ -48,9 +52,9 @@ function updateSpeciesPopulation(
   const pop = currentPops[speciesIdx] ?? 0;
   if (pop <= 0 || carryingCapacity <= 0) return 0;
 
-  // Growth rate from reproduction trait
+  // Growth rate from reproduction trait, modified by environmental fitness
   const traits = expressTraits(species.genome);
-  const r = BASE_GROWTH_RATE * (0.5 + traits.reproductionRate);
+  const r = BASE_GROWTH_RATE * (0.5 + traits.reproductionRate) * fitnessModifier;
 
   // Consumers (herbivores, predators) need food to sustain population.
   // Check if any prey exists in this biome — if not, apply starvation.
@@ -119,20 +123,29 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
   // Restore RNG from state
   const rng = createRngFromState(state.rngState);
 
+  // Update biome types based on current temperature
+  const biomes = updateBiomeTypes(state.biomes, state.temperature);
+
   // Build carrying capacity lookup
   const carryingCapacity = new Map<string, number>();
-  for (const biome of state.biomes) {
+  for (const biome of biomes) {
     carryingCapacity.set(biome.id, biome.baseCarryingCapacity);
   }
 
-  // Deep clone species populations for mutation
+  // Deep clone species populations and genomes for mutation
   let currentSpecies = state.species.map((s) => ({
     ...s,
+    genome: [...s.genome],
+    originalGenome: [...s.originalGenome],
     populationByBiome: { ...s.populationByBiome },
   }));
 
   // Run sub-ticks
   for (let step = 0; step < steps; step++) {
+    // Mutate genomes each tick
+    for (const species of currentSpecies) {
+      species.genome = mutateGenome(species.genome, rng, state.config);
+    }
     // Recompute interaction matrix (species may go extinct mid-simulation)
     const matrix = computeInteractionMatrix(currentSpecies);
 
@@ -155,6 +168,7 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
     // Update each species in each biome
     for (let i = 0; i < currentSpecies.length; i++) {
       const species = currentSpecies[i];
+      const fitness = computeFitnessModifier(species, state.temperature);
       const biomeIds = Object.keys(species.populationByBiome);
 
       for (const biomeId of biomeIds) {
@@ -165,6 +179,7 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
           biomePopulations,
           k,
           stepSize,
+          fitness,
           rng,
           matrix,
           species,
@@ -183,15 +198,21 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
     currentSpecies = currentSpecies.filter((s) => Object.keys(s.populationByBiome).length > 0);
   }
 
+  // Check for speciation events
+  const finalTick = state.tick + steps;
+  const speciationResult = checkSpeciation(currentSpecies, finalTick, rng, state.config);
+  currentSpecies = speciationResult.species;
+
   // Count extinctions
   const survivors = new Set(currentSpecies.map((s) => s.id));
   const extinctions = state.species.filter((s) => !survivors.has(s.id)).length;
 
   return {
     ...state,
-    tick: state.tick + steps,
+    tick: finalTick,
     elapsedSeconds: state.elapsedSeconds + deltaSec,
     lastTimestamp: Date.now(),
+    biomes,
     species: currentSpecies,
     extinctSpeciesCount: state.extinctSpeciesCount + extinctions,
     rngState: rng.getState(),

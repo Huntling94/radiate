@@ -66,6 +66,8 @@ export interface Species {
   name: string;
   /** Trait values as float array — indices mapped by TRAIT_REGISTRY */
   genome: number[];
+  /** Genome at species creation — reference point for speciation distance */
+  originalGenome: number[];
   /** Population in each biome: biome ID → population count */
   populationByBiome: Record<string, number>;
   /** Ecological role */

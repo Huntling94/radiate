@@ -31,6 +31,7 @@ export interface SimulationControls {
   speciesWithPopulation: Array<Species & { totalPopulation: number }>;
   isPaused: boolean;
   togglePause: () => void;
+  setTemperature: (temp: number) => void;
 }
 
 export function useSimulation(seed = 42): SimulationControls {
@@ -79,6 +80,10 @@ export function useSimulation(seed = 42): SimulationControls {
     setIsPaused((p) => !p);
   }, [isPaused]);
 
+  const setTemperature = useCallback((temp: number) => {
+    setWorldState((prev) => ({ ...prev, temperature: temp }));
+  }, []);
+
   const speciesWithPopulation = worldState.species.map((s) => ({
     ...s,
     totalPopulation: getTotalPopulation(s),
@@ -90,5 +95,6 @@ export function useSimulation(seed = 42): SimulationControls {
     speciesWithPopulation,
     isPaused,
     togglePause,
+    setTemperature,
   };
 }

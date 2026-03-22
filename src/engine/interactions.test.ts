@@ -3,9 +3,11 @@ import { computePairInteraction, computeInteractionMatrix } from './interactions
 import type { Species } from './types.ts';
 
 function makeSpecies(overrides: Partial<Species> & { id: string }): Species {
+  const genome = overrides.genome ?? [0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
   return {
     name: overrides.id,
-    genome: [0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+    genome,
+    originalGenome: [...genome],
     populationByBiome: {},
     trophicLevel: 'producer',
     parentSpeciesId: null,
