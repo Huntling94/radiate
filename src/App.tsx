@@ -36,7 +36,10 @@ export function App() {
 
         {/* Right: Species list */}
         <div className="w-64 overflow-auto border-l border-neutral-800 p-4">
-          <SpeciesList species={speciesWithPopulation} />
+          <SpeciesList
+            species={speciesWithPopulation}
+            extinctCount={worldState.extinctSpeciesCount}
+          />
         </div>
       </div>
 

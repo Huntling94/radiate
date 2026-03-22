@@ -26,3 +26,6 @@ export { deriveBiomeType, BIOME_COLOURS, isHabitable } from './biome.ts';
 export { createInitialState } from './factory.ts';
 
 export { tick } from './tick.ts';
+
+export type { InteractionMatrix } from './interactions.ts';
+export { computeInteractionMatrix, computePairInteraction } from './interactions.ts';

@@ -4,7 +4,6 @@
  */
 
 import type { WorldState, Biome, Species, SimConfig } from './types.ts';
-import { GENOME_LENGTH } from './types.ts';
 import { createRng } from './rng.ts';
 import type { Rng } from './rng.ts';
 import { deriveBiomeType, isHabitable } from './biome.ts';
@@ -25,7 +24,6 @@ const DEFAULT_CONFIG: SimConfig = {
 
 const DEFAULT_TEMPERATURE = 20;
 const BASE_CARRYING_CAPACITY = 500;
-const INITIAL_POPULATION_PER_BIOME = 50;
 
 // ---------------------------------------------------------------------------
 // Biome generation
@@ -98,32 +96,70 @@ function smooth(values: number[], width: number, height: number): number[] {
 // Seed species
 // ---------------------------------------------------------------------------
 
-function createSeedSpecies(rng: Rng, biomes: Biome[]): Species {
-  // Balanced genome — middle of each trait range
-  const genome: number[] = [];
-  for (let i = 0; i < GENOME_LENGTH; i++) {
-    // Slight variation around 0.5 for each trait
-    genome.push(0.5 + rng.nextGaussian() * 0.05);
+function createSeedSpecies(rng: Rng, biomes: Biome[]): Species[] {
+  const habitableBiomes = biomes.filter((b) => isHabitable(b.biomeType));
+
+  // --- Producer: Proto Alga ---
+  // High reproduction, moderate traits, present in all habitable biomes
+  const producerGenome = [0.4, 0.2, 0.5, 0.5, 0.3, 0.8]; // size, speed, cold, heat, metabolism, reproduction
+  const producerPop: Record<string, number> = {};
+  for (const biome of habitableBiomes) {
+    producerPop[biome.id] = 200;
   }
 
-  // Distribute initial population across habitable biomes
-  const populationByBiome: Record<string, number> = {};
-  for (const biome of biomes) {
-    if (isHabitable(biome.biomeType)) {
-      populationByBiome[biome.id] = INITIAL_POPULATION_PER_BIOME;
+  // --- Herbivore: Grazer ---
+  // Moderate speed, eats producers, present in most habitable biomes
+  const herbivorePop: Record<string, number> = {};
+  for (const biome of habitableBiomes) {
+    herbivorePop[biome.id] = 50;
+  }
+
+  // --- Predator: Stalker ---
+  // High speed, eats herbivores, present in fewer biomes with low population
+  const predatorPop: Record<string, number> = {};
+  let predatorBiomeCount = 0;
+  for (const biome of habitableBiomes) {
+    if (predatorBiomeCount < Math.ceil(habitableBiomes.length / 2)) {
+      predatorPop[biome.id] = 10;
+      predatorBiomeCount++;
     }
   }
 
-  return {
-    id: 'species-0',
-    name: 'Proto Alga',
-    genome,
-    populationByBiome,
-    trophicLevel: 'producer',
-    parentSpeciesId: null,
-    originTick: 0,
-    generation: 0,
-  };
+  // Add slight random variation to genomes for uniqueness
+  const varyGenome = (base: number[]): number[] => base.map((v) => v + rng.nextGaussian() * 0.02);
+
+  return [
+    {
+      id: 'species-0',
+      name: 'Proto Alga',
+      genome: varyGenome(producerGenome),
+      populationByBiome: producerPop,
+      trophicLevel: 'producer',
+      parentSpeciesId: null,
+      originTick: 0,
+      generation: 0,
+    },
+    {
+      id: 'species-1',
+      name: 'Grazer',
+      genome: varyGenome([0.6, 0.5, 0.4, 0.4, 0.5, 0.5]),
+      populationByBiome: herbivorePop,
+      trophicLevel: 'herbivore',
+      parentSpeciesId: null,
+      originTick: 0,
+      generation: 0,
+    },
+    {
+      id: 'species-2',
+      name: 'Stalker',
+      genome: varyGenome([0.8, 0.9, 0.3, 0.3, 0.7, 0.3]),
+      populationByBiome: predatorPop,
+      trophicLevel: 'predator',
+      parentSpeciesId: null,
+      originTick: 0,
+      generation: 0,
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -136,7 +172,7 @@ export function createInitialState(seed: number): WorldState {
   const rng = createRng(seed);
   const temperature = DEFAULT_TEMPERATURE;
   const biomes = generateBiomes(rng, config, temperature);
-  const species = [createSeedSpecies(rng, biomes)];
+  const species = createSeedSpecies(rng, biomes);
 
   return {
     tick: 0,
