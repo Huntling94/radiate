@@ -24,15 +24,16 @@ These preferences were observed across 32 sessions of collaborative development 
 - **Will wants to understand the "why."** He engages substantively with methodology trade-offs and financial/technical concepts. Claude should explain reasoning step-by-step when introducing new concepts, not just present conclusions.
 
 ### Communication preferences
-- **Brief before code, always.** Will expects an implementation brief before any medium or large feature is built. Use `/plan` to produce this. Wait for explicit approval ("shall I proceed?" → Will says yes) before writing code.
-- **Step-by-step calculations / reasoning printed in chat.** When explaining how something works (an algorithm, a design pattern, a simulation mechanic), walk through the logic concretely. Don't hand-wave.
+- **Brief before code, always.** Will expects an implementation brief (BRF format, see `docs/briefs/`) before any medium or large feature is built. Wait for explicit approval before writing code.
+- **Step-by-step calculations / reasoning printed in chat.** When explaining how something works, walk through the logic concretely.
 - **No demo language.** Never say "as a demo" or "for demonstration purposes." Everything built is real, production-intent code.
 - **Governance documents are first-class deliverables.** CLAUDE.md, DEFERRED_DECISIONS.md, handover notes, and consultancy reports are as important as code. Keep them current.
 
 ### Quality standards
-- **TypeScript strict mode, no exceptions.** Run `npx tsc --noEmit` before declaring anything complete.
+- **TypeScript strict mode, no exceptions.** Run `npm run build` before declaring anything complete (Lesson 2).
 - **Tests for every engine function.** The simulation engine is the product — untested simulation code is unshipped code.
 - **Clean architecture boundaries.** Engine never imports from components. Components never import from engine directly. The WorldState interface is the contract.
+- **Always add migration logic when changing WorldState shape** (Lesson 1).
 
 ### What Will is learning
 - This is Will's first project using Claude Code (he's learning the tool alongside building the game).
@@ -42,41 +43,85 @@ These preferences were observed across 32 sessions of collaborative development 
 
 ---
 
+## Session 1 summary (2026-03-22)
+
+### What was built
+
+**v0.1 "First Life" — Complete:**
+- Core simulation engine: Lotka-Volterra multi-species dynamics, logistic growth, trait-derived interaction matrix
+- Genome mutation and speciation (distance-from-origin model)
+- Temperature control affecting biome types and species fitness
+- 2D Canvas biome map with colour-coded species indicators and hover tooltips
+- Population charts (Recharts), species list with trait bars
+- Offline progression via tick() time-jumps, localStorage persistence
+- GitHub Actions CI/deploy to GitHub Pages
+- 78 tests across 11 test files, 3 ADRs, 7 BRFs
+
+**v0.2 "Naturalist" — Started:**
+- UI overhaul: game-like dark theme, larger biome cells, responsive map, tick speed control, trait bars
+- Event log with causal attribution (speciation and extinction events recorded with reasons)
+- World expanded to 12x8 grid (96 biomes)
+- Save migration for WorldState schema changes
+
+### Commits (Session 1)
+1. `87f30de` — Governance docs
+2. `0dcfabd` — Project scaffold + tooling + CI/deploy
+3. `72dfc40` — WorldState types + RNG (BRF-001)
+4. `d45120d` — Tick loop + Canvas map + React shell (BRF-002)
+5. `93c60c3` — Multi-species Lotka-Volterra (BRF-003)
+6. `0a4d153` — Genome mutation + speciation + temperature (BRF-004)
+7. `af60363` — Persistence + offline progression (BRF-005)
+8. `cab4421` — Governance update for v0.2
+9. `97dc77f` — UI overhaul (BRF-006)
+10. `db96ce1` — Event log + larger world (BRF-007)
+11. `06acb3b` — Save migration fix
+12. `556c69a` — Lesson learned: save migration
+13. `3515471` — Lesson learned: tsc -b vs tsc --noEmit
+
+### What's next (v0.2 remaining)
+
+| Chunk | Status | Delivers |
+|-------|--------|----------|
+| 7 - UI overhaul | Complete | Polished layout, trait bars, tick speed, responsive map |
+| 8 - Event log | Complete | Causal attribution, 12x8 world |
+| 9 - Species cards/bestiary | Not started | Detailed species view with traits, lineage, history |
+| 10 - Phylogenetic tree | Not started | Visual branching tree of evolutionary history |
+| 11 - Species share codes | Not started | Export/import species as URL-encoded JSON |
+| 12 - Image export + tuning | Not started | PNG export, edge-of-chaos regulator |
+
+### Active DDRs requiring attention
+- DDR-005: Simulation pacing (resolve during v0.2 tuning)
+- DDR-010: Simulation rollback/checkpoints (v0.2)
+
+### Known issues
+- GitHub Pages deployment requires `gh auth login` from PowerShell (gh CLI not on bash PATH in Claude Code)
+- Browser localStorage may contain old save format — migration handles this but player may need to click "New Game" once
+
+---
+
 ## Project context
 
 ### What Radiate is
 An idle evolution ecosystem builder. The player shapes a world's environment and watches evolution unfold over geological timescales. The simulation runs while the player is away. Species can be shared between players' worlds.
 
-### Why it exists
-- Will has always wanted to build an evolution simulation game
-- The idle format was identified as the unique market positioning (no existing game combines genuine emergent simulation with idle mechanics)
-- Inspired by The Sapling's visual aesthetic (3D low-poly) but differentiated by idle gameplay, social metagame, and phylogenetic tree as first-class UI
-
-### Target audience (in priority order)
-1. **Idle/incremental game community** — r/incremental_games, itch.io. Mechanically novel idle game with emergent simulation.
-2. **Science & speculative evolution fans** — r/SpeculativeEvolution, YouTube spec evo community. A toy for exploring evolutionary dynamics.
-3. **Lapsed base-builder players** — Factorio/Rimworld fans who can't commit 6-hour sessions anymore. System-design satisfaction in 10-min bursts.
-
-### The social metagame
-Species can be exported as share codes and imported into other players' worlds. A public species gallery tracks robustness across worlds. Leaderboards rank species by survival rate, disruptiveness, and longevity. Random invasion events (toggleable) introduce species from the global pool.
-
 ### Tech stack
-TypeScript, React 18, Vite, Tailwind CSS, Recharts, HTML Canvas 2D. Browser-first (GitHub Pages). PWA for mobile.
+TypeScript, React 19, Vite 8, Tailwind CSS v4, Recharts, HTML Canvas 2D. Browser-first (GitHub Pages). PWA for mobile (future).
+
+### Architecture
+```
+src/engine/  →  WorldState  →  src/components/
+     ↑                              ↑
+  Pure TS, no DOM              React, Tailwind
+  Fully tested                 Consumes WorldState
+     ↓                              ↓
+src/data/  (persistence layer, no direct localStorage in components)
+```
+
+### Live URL
+https://huntling94.github.io/radiate/
 
 ### Development pace
-Weekend sprints. Estimated 1–2 months to v0.1. Will provides product direction; Claude writes all code.
-
----
-
-## Phased roadmap
-
-| Phase | Codename | Delivers |
-|-------|----------|----------|
-| v0.1 | First Life | Core simulation engine, 2D biome map, population charts, species list, 1 environmental control, offline progression, GitHub Pages deploy |
-| v0.2 | Naturalist | Phylogenetic tree, species cards/bestiary, naturalist mode, event log with causal attribution, species share codes, image export |
-| v0.3 | Connected | Public species gallery (backend), robustness leaderboard, push notifications (PWA), terrain sculpting, epoch progression, enhanced 2D sprites |
-| v0.4 | Invasion | Random invasion events, co-evolution/symbiosis, competitive ecology, expanded biomes, edge-of-chaos regulator tuning |
-| v0.5+ | Aquarium | 3D low-poly zoom-in view (Three.js), modular creature meshes, seasonal visual transitions, sound design, Steam consideration |
+Weekend sprints. Will provides product direction; Claude writes all code.
 
 ---
 
@@ -84,7 +129,9 @@ Weekend sprints. Estimated 1–2 months to v0.1. Will provides product direction
 
 | Document | Purpose |
 |----------|---------|
-| `CLAUDE.md` | Governance framework, architecture, conventions, design principles |
-| `DEFERRED_DECISIONS.md` | Decisions explicitly deferred with context and resolve-by triggers |
-| `HANDOVER.md` | This document — project context and owner working preferences |
-| `docs/vision.md` | Full product vision document (March 2026) |
+| `CLAUDE.md` | Governance framework, architecture, conventions, quality framework, lessons learned, feature registry |
+| `DEFERRED_DECISIONS.md` | 11 decisions explicitly deferred with context and resolve-by triggers |
+| `HANDOVER.md` | This document — project context and session history |
+| `docs/20260322_vision.md` | Full product vision document (March 2026) |
+| `docs/adr/` | Architecture decision records (3 ADRs) |
+| `docs/briefs/` | Implementation briefs (7 BRFs) |
