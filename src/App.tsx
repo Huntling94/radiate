@@ -10,14 +10,30 @@ export function App() {
     populationHistory,
     speciesWithPopulation,
     isPaused,
+    welcomeMessage,
     togglePause,
     setTemperature,
+    newGame,
+    dismissWelcome,
   } = useSimulation();
 
   const speciesIds = worldState.species.map((s) => s.id);
 
   return (
     <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
+      {/* Welcome back banner */}
+      {welcomeMessage ? (
+        <div className="flex items-center justify-between bg-emerald-900/50 px-4 py-2 text-sm text-emerald-200">
+          <span>{welcomeMessage}</span>
+          <button
+            onClick={dismissWelcome}
+            className="ml-4 text-xs text-emerald-400 hover:text-emerald-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
+
       {/* Header */}
       <header className="flex items-center justify-between border-b border-neutral-800 px-4 py-2">
         <h1 className="text-lg font-bold tracking-tight">Radiate</h1>
@@ -30,6 +46,12 @@ export function App() {
             className="rounded border border-neutral-700 px-3 py-1 text-xs transition-colors hover:border-neutral-500 hover:text-neutral-200"
           >
             {isPaused ? 'Resume' : 'Pause'}
+          </button>
+          <button
+            onClick={newGame}
+            className="rounded border border-neutral-700 px-3 py-1 text-xs transition-colors hover:border-red-700 hover:text-red-300"
+          >
+            New Game
           </button>
         </div>
       </header>
