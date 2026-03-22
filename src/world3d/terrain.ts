@@ -4,14 +4,16 @@
  */
 
 import type { Biome, BiomeType } from '../engine/index.ts';
+import { isHabitable } from '../engine/index.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_HEIGHT = 8;
-const OCEAN_DEPTH = -1.5;
-const CELL_SIZE = 4; // world units per biome cell
+const MAX_HEIGHT = 12;
+const OCEAN_DEPTH = -2;
+const CELL_SIZE = 10; // world units per biome cell
+const DEFAULT_SUBDIVISIONS = 6;
 
 /** Biome colours as RGB triples (0–1). */
 const BIOME_COLOURS_RGB: Record<BiomeType, [number, number, number]> = {
@@ -60,7 +62,6 @@ function bilinearElevation(
   gx: number,
   gy: number,
 ): number {
-  // Clamp to grid edges
   const cx = Math.max(0, Math.min(gridWidth - 1, gx));
   const cy = Math.max(0, Math.min(gridHeight - 1, gy));
 
@@ -91,7 +92,6 @@ function elevationToHeight(elevation: number, biomeType: BiomeType): number {
 
 /** Deterministic colour noise from vertex position — returns ±0.05. */
 function vertexColourNoise(vx: number, vy: number): number {
-  // Simple hash for deterministic variation
   const h = Math.sin(vx * 127.1 + vy * 311.7) * 43758.5453;
   return (h - Math.floor(h)) * 0.1 - 0.05;
 }
@@ -104,7 +104,7 @@ export function generateTerrain(
   biomes: Biome[],
   gridWidth: number,
   gridHeight: number,
-  subdivisions = 4,
+  subdivisions = DEFAULT_SUBDIVISIONS,
 ): TerrainData {
   const vertexWidth = (gridWidth - 1) * subdivisions + 1;
   const vertexHeight = (gridHeight - 1) * subdivisions + 1;
@@ -120,15 +120,12 @@ export function generateTerrain(
     for (let vx = 0; vx < vertexWidth; vx++) {
       const idx = vy * vertexWidth + vx;
 
-      // Map vertex to grid coordinates
       const gx = (vx / (vertexWidth - 1)) * (gridWidth - 1);
       const gy = (vy / (vertexHeight - 1)) * (gridHeight - 1);
 
-      // World position
       const wx = (vx / (vertexWidth - 1)) * worldWidth - worldWidth / 2;
       const wz = (vy / (vertexHeight - 1)) * worldDepth - worldDepth / 2;
 
-      // Elevation via bilinear interpolation
       const elevation = bilinearElevation(biomes, gridWidth, gridHeight, gx, gy);
       const nearestBiome = getBiomeAt(biomes, gridWidth, gridHeight, gx, gy);
       const biomeType = nearestBiome?.biomeType ?? 'grassland';
@@ -138,7 +135,6 @@ export function generateTerrain(
       positions[idx * 3 + 1] = wy;
       positions[idx * 3 + 2] = wz;
 
-      // Vertex colour with subtle variation for visual depth
       const rgb = BIOME_COLOURS_RGB[biomeType];
       const variation = vertexColourNoise(vx, vy);
       colours[idx * 3] = Math.max(0, Math.min(1, rgb[0] + variation));
@@ -147,7 +143,6 @@ export function generateTerrain(
     }
   }
 
-  // Triangle indices
   const quads = (vertexWidth - 1) * (vertexHeight - 1);
   const indices = new Uint32Array(quads * 6);
   let triIdx = 0;
@@ -169,20 +164,62 @@ export function generateTerrain(
     }
   }
 
-  return {
-    positions,
-    colours,
-    indices,
-    vertexWidth,
-    vertexHeight,
-    worldWidth,
-    worldDepth,
-  };
+  return { positions, colours, indices, vertexWidth, vertexHeight, worldWidth, worldDepth };
+}
+
+/**
+ * Get the terrain height at any world x/z position by interpolating the biome grid.
+ * Used by creatures and camera to follow terrain surface.
+ */
+export function getHeightAtWorldXZ(
+  wx: number,
+  wz: number,
+  biomes: Biome[],
+  gridWidth: number,
+  gridHeight: number,
+): number {
+  const worldWidth = (gridWidth - 1) * CELL_SIZE;
+  const worldDepth = (gridHeight - 1) * CELL_SIZE;
+
+  // World coords → normalised 0–1
+  const nx = (wx + worldWidth / 2) / worldWidth;
+  const nz = (wz + worldDepth / 2) / worldDepth;
+
+  // Normalised → grid coords
+  const gx = nx * (gridWidth - 1);
+  const gy = nz * (gridHeight - 1);
+
+  const elevation = bilinearElevation(biomes, gridWidth, gridHeight, gx, gy);
+  const biome = getBiomeAt(biomes, gridWidth, gridHeight, gx, gy);
+  const biomeType = biome?.biomeType ?? 'grassland';
+  return elevationToHeight(elevation, biomeType);
+}
+
+/**
+ * Check if a world x/z position is on habitable terrain.
+ */
+export function isPositionHabitable(
+  wx: number,
+  wz: number,
+  biomes: Biome[],
+  gridWidth: number,
+  gridHeight: number,
+): boolean {
+  const worldWidth = (gridWidth - 1) * CELL_SIZE;
+  const worldDepth = (gridHeight - 1) * CELL_SIZE;
+
+  const nx = (wx + worldWidth / 2) / worldWidth;
+  const nz = (wz + worldDepth / 2) / worldDepth;
+
+  const gx = nx * (gridWidth - 1);
+  const gy = nz * (gridHeight - 1);
+
+  const biome = getBiomeAt(biomes, gridWidth, gridHeight, gx, gy);
+  return biome ? isHabitable(biome.biomeType) : false;
 }
 
 /**
  * Get the terrain height at a biome's grid position.
- * Used for placing species indicators on the terrain surface.
  */
 export function getTerrainHeightAtBiome(
   biome: Biome,
@@ -207,6 +244,23 @@ export function biomeToWorldXZ(
   const wx = (biome.x / (gridWidth - 1)) * worldWidth - worldWidth / 2;
   const wz = (biome.y / (gridHeight - 1)) * worldDepth - worldDepth / 2;
   return [wx, wz];
+}
+
+/**
+ * Get the world bounds.
+ */
+export function getWorldBounds(
+  gridWidth: number,
+  gridHeight: number,
+): { minX: number; maxX: number; minZ: number; maxZ: number } {
+  const worldWidth = (gridWidth - 1) * CELL_SIZE;
+  const worldDepth = (gridHeight - 1) * CELL_SIZE;
+  return {
+    minX: -worldWidth / 2,
+    maxX: worldWidth / 2,
+    minZ: -worldDepth / 2,
+    maxZ: worldDepth / 2,
+  };
 }
 
 export { CELL_SIZE, MAX_HEIGHT };

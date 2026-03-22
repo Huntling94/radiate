@@ -1,30 +1,46 @@
 /**
- * Genome-driven 3D creature system.
- * Procedural geometry from traits, instanced rendering, idle animation.
+ * Cute procedural creatures with trophic behaviour AI.
+ * Representative creatures (3–8 per species) that wander, chase, flee.
+ * All behaviour is cosmetic — the engine drives actual population dynamics.
  */
 
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Species, TrophicLevel, Biome } from '../engine/index.ts';
 import { expressTraits } from '../engine/index.ts';
-import { getTerrainHeightAtBiome, biomeToWorldXZ, CELL_SIZE } from './terrain.ts';
+import {
+  getHeightAtWorldXZ,
+  isPositionHabitable,
+  biomeToWorldXZ,
+  getWorldBounds,
+  CELL_SIZE,
+} from './terrain.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const MAX_INSTANCES_PER_BIOME = 8;
-const CREATURE_GROUP_NAME = '__creatures';
+const BASE_MOVE_SPEED = 3;
+const WANDER_RADIUS = 20;
+const IDLE_MIN = 1.5;
+const IDLE_MAX = 4;
+const PREDATOR_DETECT_RANGE = 14;
+const HERBIVORE_FLEE_RANGE = 10;
+const CHASE_TIMEOUT = 6;
+const CATCH_DISTANCE = 1.5;
+const RESPAWN_DELAY = 3;
+const FLEE_SPEED_MULT = 2;
+const CHASE_SPEED_MULT = 1.6;
+const MAX_WANDER_ATTEMPTS = 10;
 
-// Trophic base hues (degrees on HSL wheel)
+// Trophic base hues (HSL degrees)
 const TROPHIC_HUE: Record<TrophicLevel, number> = {
-  producer: 120, // green
-  herbivore: 45, // amber/orange
-  predator: 0, // red
+  producer: 120,
+  herbivore: 45,
+  predator: 0,
 };
 
 // ---------------------------------------------------------------------------
-// Deterministic hash for scatter positions
+// Deterministic hash
 // ---------------------------------------------------------------------------
 
 function hashPair(a: number, b: number): number {
@@ -41,231 +57,541 @@ function hashString(s: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Creature appearance from genome
+// Creature appearance
 // ---------------------------------------------------------------------------
 
-interface CreatureAppearance {
-  baseScale: number;
-  stretchZ: number;
-  colour: THREE.Color;
-}
-
-function computeAppearance(species: Species): CreatureAppearance {
+function computeColour(species: Species): THREE.Color {
   const traits = expressTraits(species.genome);
-
-  // Scale from size trait (0.1–2.0 → 0.3–1.0 world units)
-  const baseScale = 0.2 + traits.size * 0.3;
-
-  // Elongation from speed (fast = stretched)
-  const stretchZ = 0.8 + traits.speed * 0.3;
-
-  // Colour: trophic base hue, shifted by temperature tolerances
   const baseHue = TROPHIC_HUE[species.trophicLevel];
   const hueShift = (traits.heatTolerance - traits.coldTolerance) * 15;
-  const hue = (((baseHue + hueShift) % 360) + 360) % 360;
-
-  // Saturation from metabolism
-  const saturation = 0.4 + Math.min(0.5, traits.metabolism * 0.25);
-
-  // Lightness
-  const lightness = 0.35 + Math.min(0.2, traits.size * 0.08);
+  // Add species-specific hue variation
+  const speciesHueOffset = (hashString(species.id) % 30) - 15;
+  const hue = (((baseHue + hueShift + speciesHueOffset) % 360) + 360) % 360;
+  const saturation = 0.5 + Math.min(0.4, traits.metabolism * 0.2);
+  const lightness = 0.4 + Math.min(0.2, traits.size * 0.08);
 
   const colour = new THREE.Color();
   colour.setHSL(hue / 360, saturation, lightness);
+  return colour;
+}
 
-  return { baseScale, stretchZ, colour };
+function computeScale(species: Species): number {
+  const traits = expressTraits(species.genome);
+  return 0.4 + traits.size * 0.4;
+}
+
+function computeSpeed(species: Species): number {
+  const traits = expressTraits(species.genome);
+  return BASE_MOVE_SPEED * (0.5 + traits.speed * 0.5);
 }
 
 // ---------------------------------------------------------------------------
-// Procedural geometry per trophic level
+// Cute creature mesh builder
 // ---------------------------------------------------------------------------
 
-function buildProducerGeometry(appearance: CreatureAppearance): THREE.BufferGeometry {
-  const s = appearance.baseScale;
+function buildCreatureMesh(species: Species): THREE.Group {
+  const colour = computeColour(species);
+  const scale = computeScale(species);
+  const traits = expressTraits(species.genome);
+  const group = new THREE.Group();
 
-  // Stem: thin cylinder
-  const stem = new THREE.CylinderGeometry(s * 0.15, s * 0.2, s * 1.2, 6);
-  stem.translate(0, s * 0.6, 0);
+  const bodyMat = new THREE.MeshToonMaterial({ color: colour });
+  const eyeWhiteMat = new THREE.MeshToonMaterial({ color: 0xffffff });
+  const pupilMat = new THREE.MeshToonMaterial({ color: 0x111111 });
 
-  // Top: flattened sphere (canopy/cap)
-  const top = new THREE.SphereGeometry(s * 0.5, 8, 6);
-  top.scale(1, 0.5, 1);
-  top.translate(0, s * 1.2, 0);
-
-  return mergeGeometries([stem, top], false);
-}
-
-function buildHerbivoreGeometry(appearance: CreatureAppearance): THREE.BufferGeometry {
-  const s = appearance.baseScale;
-  const sz = appearance.stretchZ;
-
-  // Body: stretched sphere
-  const body = new THREE.SphereGeometry(s * 0.5, 8, 6);
-  body.scale(0.9, 0.8, sz);
-  body.translate(0, s * 0.5, 0);
-
-  // Head: smaller sphere
-  const head = new THREE.SphereGeometry(s * 0.25, 6, 5);
-  head.translate(0, s * 0.85, s * 0.4 * sz);
-
-  return mergeGeometries([body, head], false);
-}
-
-function buildPredatorGeometry(appearance: CreatureAppearance): THREE.BufferGeometry {
-  const s = appearance.baseScale;
-  const sz = appearance.stretchZ;
-
-  // Body: elongated cone
-  const body = new THREE.ConeGeometry(s * 0.35, s * 1.0, 6);
-  body.scale(0.8, 1, sz);
-  body.rotateX(Math.PI / 2);
-  body.translate(0, s * 0.45, 0);
-
-  // Head: angular box
-  const head = new THREE.BoxGeometry(s * 0.3, s * 0.25, s * 0.35);
-  head.translate(0, s * 0.65, s * 0.45 * sz);
-
-  return mergeGeometries([body, head], false);
-}
-
-function buildCreatureGeometry(
-  trophicLevel: TrophicLevel,
-  appearance: CreatureAppearance,
-): THREE.BufferGeometry {
-  switch (trophicLevel) {
-    case 'producer':
-      return buildProducerGeometry(appearance);
-    case 'herbivore':
-      return buildHerbivoreGeometry(appearance);
-    case 'predator':
-      return buildPredatorGeometry(appearance);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Instance placement
-// ---------------------------------------------------------------------------
-
-interface BiomePlacement {
-  worldX: number;
-  worldZ: number;
-  terrainY: number;
-  count: number;
-}
-
-function computePlacements(
-  species: Species,
-  biomes: Biome[],
-  gridWidth: number,
-  gridHeight: number,
-): BiomePlacement[] {
-  const biomeMap = new Map(biomes.map((b) => [b.id, b]));
-  const placements: BiomePlacement[] = [];
-
-  for (const [biomeId, population] of Object.entries(species.populationByBiome)) {
-    if (population <= 0) continue;
-    const biome = biomeMap.get(biomeId);
-    if (!biome) continue;
-
-    const [wx, wz] = biomeToWorldXZ(biome, gridWidth, gridHeight);
-    const wy = getTerrainHeightAtBiome(biome, biomes, gridWidth, gridHeight);
-    const count = Math.min(
-      MAX_INSTANCES_PER_BIOME,
-      Math.max(1, Math.ceil(Math.log2(population + 1))),
+  if (species.trophicLevel === 'producer') {
+    // Mushroom-like: short stalk + round cap
+    const stalk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15 * scale, 0.2 * scale, 0.6 * scale, 8),
+      bodyMat,
     );
+    stalk.position.y = 0.3 * scale;
+    group.add(stalk);
 
-    placements.push({ worldX: wx, worldZ: wz, terrainY: wy, count });
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.45 * scale, 12, 8), bodyMat);
+    cap.scale.set(1, 0.6, 1);
+    cap.position.y = 0.7 * scale;
+    group.add(cap);
+
+    // Eyes on the cap
+    const eyeOffset = 0.18 * scale;
+    const eyeY = 0.65 * scale;
+    const eyeZ = 0.3 * scale;
+    for (const side of [-1, 1]) {
+      const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.08 * scale, 8, 6), eyeWhiteMat);
+      eyeWhite.position.set(side * eyeOffset, eyeY, eyeZ);
+      group.add(eyeWhite);
+
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.04 * scale, 6, 4), pupilMat);
+      pupil.position.set(side * eyeOffset, eyeY, eyeZ + 0.05 * scale);
+      group.add(pupil);
+    }
+  } else if (species.trophicLevel === 'herbivore') {
+    // Chubby round body + large head
+    const stretch = 0.8 + traits.speed * 0.15;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.4 * scale, 12, 10), bodyMat);
+    body.scale.set(0.9, 0.85, stretch);
+    body.position.y = 0.4 * scale;
+    group.add(body);
+
+    // Head — big relative to body
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32 * scale, 12, 10), bodyMat);
+    head.position.set(0, 0.75 * scale, 0.25 * scale * stretch);
+    group.add(head);
+
+    // Eyes
+    const eyeOffset = 0.12 * scale;
+    const eyeY = 0.78 * scale;
+    const eyeZ = 0.25 * scale * stretch + 0.2 * scale;
+    for (const side of [-1, 1]) {
+      const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.09 * scale, 8, 6), eyeWhiteMat);
+      eyeWhite.position.set(side * eyeOffset, eyeY, eyeZ);
+      group.add(eyeWhite);
+
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.045 * scale, 6, 4), pupilMat);
+      pupil.position.set(side * eyeOffset, eyeY, eyeZ + 0.06 * scale);
+      group.add(pupil);
+    }
+  } else {
+    // Predator: sleek body, forward-leaning head
+    const stretch = 0.9 + traits.speed * 0.2;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.35 * scale, 12, 10), bodyMat);
+    body.scale.set(0.75, 0.8, stretch);
+    body.position.y = 0.4 * scale;
+    group.add(body);
+
+    // Head — slightly smaller, angular position
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25 * scale, 10, 8), bodyMat);
+    head.scale.set(0.9, 0.85, 1.1);
+    head.position.set(0, 0.6 * scale, 0.35 * scale * stretch);
+    group.add(head);
+
+    // Eyes — slightly narrower
+    const eyeOffset = 0.1 * scale;
+    const eyeY = 0.63 * scale;
+    const eyeZ = 0.35 * scale * stretch + 0.18 * scale;
+    for (const side of [-1, 1]) {
+      const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 8, 6), eyeWhiteMat);
+      eyeWhite.position.set(side * eyeOffset, eyeY, eyeZ);
+      group.add(eyeWhite);
+
+      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.04 * scale, 6, 4), pupilMat);
+      pupil.position.set(side * eyeOffset, eyeY, eyeZ + 0.05 * scale);
+      group.add(pupil);
+    }
   }
 
-  return placements;
+  return group;
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Creature instance state
 // ---------------------------------------------------------------------------
 
-export function updateCreatures(
-  scene: THREE.Scene,
-  species: Species[],
-  biomes: Biome[],
-  gridWidth: number,
-  gridHeight: number,
-  time: number,
-): void {
-  // Remove existing creature group
-  const existing = scene.getObjectByName(CREATURE_GROUP_NAME);
-  if (existing) {
-    existing.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
-        (obj.geometry as THREE.BufferGeometry).dispose();
-        const mat = obj.material as THREE.Material | THREE.Material[];
-        if (Array.isArray(mat)) {
-          for (const m of mat) m.dispose();
-        } else {
-          mat.dispose();
+type CreatureState = 'idle' | 'walking' | 'fleeing' | 'chasing' | 'catching' | 'hidden';
+
+export interface CreatureInstance {
+  speciesId: string;
+  trophicLevel: TrophicLevel;
+  mesh: THREE.Group;
+  position: THREE.Vector3;
+  targetPosition: THREE.Vector3;
+  state: CreatureState;
+  stateTimer: number;
+  speed: number;
+  facingAngle: number;
+  chaseTarget: CreatureInstance | null;
+}
+
+// ---------------------------------------------------------------------------
+// Creature manager
+// ---------------------------------------------------------------------------
+
+export class CreatureManager {
+  private creatures: CreatureInstance[] = [];
+  private scene: THREE.Scene;
+  private biomes: Biome[] = [];
+  private gridWidth = 0;
+  private gridHeight = 0;
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+  }
+
+  /**
+   * Sync creature instances with the current species list.
+   * Adds creatures for new species, removes for extinct.
+   */
+  syncSpecies(species: Species[], biomes: Biome[], gridWidth: number, gridHeight: number): void {
+    this.biomes = biomes;
+    this.gridWidth = gridWidth;
+    this.gridHeight = gridHeight;
+
+    const currentSpeciesIds = new Set(species.map((s) => s.id));
+    const existingSpeciesIds = new Set(this.creatures.map((c) => c.speciesId));
+
+    // Remove creatures for extinct species
+    const toRemove = this.creatures.filter((c) => !currentSpeciesIds.has(c.speciesId));
+    for (const c of toRemove) {
+      this.scene.remove(c.mesh);
+      disposeMeshGroup(c.mesh);
+    }
+    this.creatures = this.creatures.filter((c) => currentSpeciesIds.has(c.speciesId));
+
+    // Add creatures for new species
+    for (const s of species) {
+      if (existingSpeciesIds.has(s.id)) continue;
+
+      const count = this.computeRepCount(s);
+      for (let i = 0; i < count; i++) {
+        const creature = this.spawnCreature(s, i);
+        if (creature) {
+          this.creatures.push(creature);
+          this.scene.add(creature.mesh);
         }
       }
-    });
-    scene.remove(existing);
+    }
   }
 
-  const group = new THREE.Group();
-  group.name = CREATURE_GROUP_NAME;
+  /**
+   * Update all creature behaviours for one frame.
+   */
+  update(delta: number, time: number): void {
+    for (const creature of this.creatures) {
+      this.updateCreature(creature, delta, time);
+    }
+  }
 
-  const dummy = new THREE.Object3D();
+  // -----------------------------------------------------------------------
+  // Private
+  // -----------------------------------------------------------------------
 
-  for (const s of species) {
-    const appearance = computeAppearance(s);
-    const geometry = buildCreatureGeometry(s.trophicLevel, appearance);
-    const material = new THREE.MeshLambertMaterial({ color: appearance.colour });
+  private computeRepCount(species: Species): number {
+    let totalPop = 0;
+    for (const pop of Object.values(species.populationByBiome)) {
+      totalPop += pop;
+    }
+    if (totalPop <= 0) return 0;
+    return Math.min(8, Math.max(3, Math.floor(Math.log10(totalPop + 1))));
+  }
 
-    const placements = computePlacements(s, biomes, gridWidth, gridHeight);
+  private spawnCreature(species: Species, index: number): CreatureInstance | null {
+    const mesh = buildCreatureMesh(species);
+    const pos = this.pickSpawnPosition(species, index);
+    if (!pos) return null;
 
-    // Count total instances
-    let totalInstances = 0;
-    for (const p of placements) {
-      totalInstances += p.count;
+    const wy = getHeightAtWorldXZ(pos.x, pos.z, this.biomes, this.gridWidth, this.gridHeight);
+    mesh.position.set(pos.x, wy, pos.z);
+
+    return {
+      speciesId: species.id,
+      trophicLevel: species.trophicLevel,
+      mesh,
+      position: new THREE.Vector3(pos.x, wy, pos.z),
+      targetPosition: new THREE.Vector3(pos.x, wy, pos.z),
+      state: 'idle',
+      stateTimer: Math.random() * 2,
+      speed: computeSpeed(species),
+      facingAngle: Math.random() * Math.PI * 2,
+      chaseTarget: null,
+    };
+  }
+
+  private pickSpawnPosition(species: Species, index: number): { x: number; z: number } | null {
+    // Pick a populated biome and scatter within it
+    const populatedBiomes = this.biomes.filter((b) => (species.populationByBiome[b.id] ?? 0) > 0);
+    if (populatedBiomes.length === 0) return null;
+
+    const seed = hashString(species.id) + index;
+    const biome = populatedBiomes[seed % populatedBiomes.length];
+    const [bx, bz] = biomeToWorldXZ(biome, this.gridWidth, this.gridHeight);
+
+    const offsetX = (hashPair(seed, 1) - 0.5) * CELL_SIZE * 0.8;
+    const offsetZ = (hashPair(seed, 2) - 0.5) * CELL_SIZE * 0.8;
+
+    return { x: bx + offsetX, z: bz + offsetZ };
+  }
+
+  private updateCreature(creature: CreatureInstance, delta: number, time: number): void {
+    switch (creature.state) {
+      case 'idle':
+        this.updateIdle(creature, delta, time);
+        break;
+      case 'walking':
+        this.updateWalking(creature, delta, time);
+        break;
+      case 'fleeing':
+        this.updateWalking(creature, delta, time); // same movement, higher speed
+        break;
+      case 'chasing':
+        this.updateChasing(creature, delta, time);
+        break;
+      case 'catching':
+        this.updateCatching(creature, delta);
+        break;
+      case 'hidden':
+        this.updateHidden(creature, delta);
+        break;
     }
 
-    if (totalInstances === 0) continue;
+    // Update mesh position and rotation
+    creature.mesh.position.copy(creature.position);
+    creature.mesh.rotation.y = creature.facingAngle;
 
-    const mesh = new THREE.InstancedMesh(geometry, material, totalInstances);
-    mesh.castShadow = false;
-    mesh.receiveShadow = false;
+    // Gentle bob while moving
+    if (
+      creature.state === 'walking' ||
+      creature.state === 'fleeing' ||
+      creature.state === 'chasing'
+    ) {
+      creature.mesh.position.y += Math.sin(time * 6 + creature.facingAngle * 3) * 0.08;
+    }
 
-    let instanceIdx = 0;
-    const speciesHash = hashString(s.id);
+    // Gentle sway for producers
+    if (creature.trophicLevel === 'producer') {
+      creature.mesh.rotation.z = Math.sin(time * 1.5 + creature.position.x) * 0.06;
+    }
+  }
 
-    for (const placement of placements) {
-      for (let i = 0; i < placement.count; i++) {
-        // Deterministic scatter within biome cell
-        const scatterSeed1 = hashPair(speciesHash + i, instanceIdx * 17);
-        const scatterSeed2 = hashPair(instanceIdx * 31, speciesHash + i * 7);
-        const offsetX = (scatterSeed1 - 0.5) * CELL_SIZE * 0.6;
-        const offsetZ = (scatterSeed2 - 0.5) * CELL_SIZE * 0.6;
+  private updateIdle(creature: CreatureInstance, delta: number, _time: number): void {
+    creature.stateTimer -= delta;
 
-        // Idle animation: bobbing + rotation
-        const bobPhase = time * 1.5 + instanceIdx * 0.7;
-        const bobY = Math.sin(bobPhase) * 0.15;
-        const rotY = time * 0.3 + instanceIdx * 1.3 + Math.sin(time * 0.8 + instanceIdx) * 0.3;
-
-        dummy.position.set(
-          placement.worldX + offsetX,
-          placement.terrainY + bobY,
-          placement.worldZ + offsetZ,
-        );
-        dummy.rotation.set(0, rotY, 0);
-        dummy.scale.setScalar(1);
-        dummy.updateMatrix();
-
-        mesh.setMatrixAt(instanceIdx, dummy.matrix);
-        instanceIdx++;
+    // Check for trophic interactions
+    if (creature.trophicLevel === 'predator') {
+      const prey = this.findNearbyCreature(creature, 'herbivore', PREDATOR_DETECT_RANGE);
+      if (prey && prey.state !== 'hidden') {
+        creature.state = 'chasing';
+        creature.chaseTarget = prey;
+        creature.stateTimer = CHASE_TIMEOUT;
+        return;
+      }
+    }
+    if (creature.trophicLevel === 'herbivore') {
+      const predator = this.findNearbyCreature(creature, 'predator', HERBIVORE_FLEE_RANGE);
+      if (predator && predator.state !== 'hidden') {
+        this.startFleeing(creature, predator);
+        return;
       }
     }
 
-    mesh.instanceMatrix.needsUpdate = true;
-    group.add(mesh);
+    if (creature.stateTimer <= 0) {
+      const target = this.pickWanderTarget(creature);
+      if (target) {
+        creature.targetPosition.set(target.x, 0, target.z);
+        creature.state = creature.trophicLevel === 'producer' ? 'walking' : 'walking';
+        creature.stateTimer = 0;
+      } else {
+        creature.stateTimer = IDLE_MIN;
+      }
+    }
   }
 
-  scene.add(group);
+  private updateWalking(creature: CreatureInstance, delta: number, _time: number): void {
+    // Check for trophic interactions while walking
+    if (creature.trophicLevel === 'predator') {
+      const prey = this.findNearbyCreature(creature, 'herbivore', PREDATOR_DETECT_RANGE);
+      if (prey && prey.state !== 'hidden') {
+        creature.state = 'chasing';
+        creature.chaseTarget = prey;
+        creature.stateTimer = CHASE_TIMEOUT;
+        return;
+      }
+    }
+    if (creature.trophicLevel === 'herbivore') {
+      const predator = this.findNearbyCreature(creature, 'predator', HERBIVORE_FLEE_RANGE);
+      if (predator && predator.state !== 'hidden') {
+        this.startFleeing(creature, predator);
+        return;
+      }
+    }
+
+    const speed = creature.state === 'fleeing' ? creature.speed * FLEE_SPEED_MULT : creature.speed;
+    const arrived = this.moveToward(creature, creature.targetPosition, speed, delta);
+
+    if (arrived || (creature.state === 'fleeing' && (creature.stateTimer -= delta) <= 0)) {
+      creature.state = 'idle';
+      creature.stateTimer = IDLE_MIN + Math.random() * (IDLE_MAX - IDLE_MIN);
+    }
+  }
+
+  private updateChasing(creature: CreatureInstance, delta: number, _time: number): void {
+    creature.stateTimer -= delta;
+    const target = creature.chaseTarget;
+
+    if (!target || target.state === 'hidden' || creature.stateTimer <= 0) {
+      // Give up
+      creature.state = 'idle';
+      creature.chaseTarget = null;
+      creature.stateTimer = IDLE_MIN;
+      return;
+    }
+
+    // Chase the prey
+    creature.targetPosition.copy(target.position);
+    this.moveToward(creature, target.position, creature.speed * CHASE_SPEED_MULT, delta);
+
+    const dist = creature.position.distanceTo(target.position);
+    if (dist < CATCH_DISTANCE) {
+      // Caught!
+      creature.state = 'catching';
+      creature.stateTimer = 1.5;
+      creature.chaseTarget = null;
+
+      // Hide the prey
+      target.state = 'hidden';
+      target.stateTimer = RESPAWN_DELAY;
+      target.mesh.visible = false;
+    }
+  }
+
+  private updateCatching(creature: CreatureInstance, delta: number): void {
+    // Eating animation — just idle in place
+    creature.stateTimer -= delta;
+    if (creature.stateTimer <= 0) {
+      creature.state = 'idle';
+      creature.stateTimer = IDLE_MIN + Math.random() * IDLE_MAX;
+    }
+  }
+
+  private updateHidden(creature: CreatureInstance, delta: number): void {
+    creature.stateTimer -= delta;
+    if (creature.stateTimer <= 0) {
+      // Respawn at a random position
+      const pos = this.pickRandomHabitablePosition();
+      if (pos) {
+        const wy = getHeightAtWorldXZ(pos.x, pos.z, this.biomes, this.gridWidth, this.gridHeight);
+        creature.position.set(pos.x, wy, pos.z);
+      }
+      creature.mesh.visible = true;
+      creature.state = 'idle';
+      creature.stateTimer = IDLE_MIN;
+    }
+  }
+
+  private startFleeing(creature: CreatureInstance, predator: CreatureInstance): void {
+    // Flee away from the predator
+    const dx = creature.position.x - predator.position.x;
+    const dz = creature.position.z - predator.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz) || 1;
+    const fleeX = creature.position.x + (dx / dist) * WANDER_RADIUS;
+    const fleeZ = creature.position.z + (dz / dist) * WANDER_RADIUS;
+
+    // Clamp to world bounds
+    const bounds = getWorldBounds(this.gridWidth, this.gridHeight);
+    const tx = Math.max(bounds.minX + 2, Math.min(bounds.maxX - 2, fleeX));
+    const tz = Math.max(bounds.minZ + 2, Math.min(bounds.maxZ - 2, fleeZ));
+
+    creature.targetPosition.set(tx, 0, tz);
+    creature.state = 'fleeing';
+    creature.stateTimer = 3;
+  }
+
+  private moveToward(
+    creature: CreatureInstance,
+    target: THREE.Vector3,
+    speed: number,
+    delta: number,
+  ): boolean {
+    const dx = target.x - creature.position.x;
+    const dz = target.z - creature.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist < 0.5) return true;
+
+    // Face direction
+    creature.facingAngle = Math.atan2(dx, dz);
+
+    // Move
+    const step = Math.min(speed * delta, dist);
+    creature.position.x += (dx / dist) * step;
+    creature.position.z += (dz / dist) * step;
+
+    // Follow terrain
+    creature.position.y = getHeightAtWorldXZ(
+      creature.position.x,
+      creature.position.z,
+      this.biomes,
+      this.gridWidth,
+      this.gridHeight,
+    );
+
+    return false;
+  }
+
+  private findNearbyCreature(
+    creature: CreatureInstance,
+    trophicLevel: TrophicLevel,
+    range: number,
+  ): CreatureInstance | null {
+    let closest: CreatureInstance | null = null;
+    let closestDist = range;
+
+    for (const other of this.creatures) {
+      if (other === creature || other.trophicLevel !== trophicLevel) continue;
+      if (other.state === 'hidden') continue;
+
+      const dist = creature.position.distanceTo(other.position);
+      if (dist < closestDist) {
+        closest = other;
+        closestDist = dist;
+      }
+    }
+
+    return closest;
+  }
+
+  private pickWanderTarget(creature: CreatureInstance): { x: number; z: number } | null {
+    const bounds = getWorldBounds(this.gridWidth, this.gridHeight);
+
+    for (let attempt = 0; attempt < MAX_WANDER_ATTEMPTS; attempt++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Math.random() * WANDER_RADIUS;
+      const tx = creature.position.x + Math.cos(angle) * dist;
+      const tz = creature.position.z + Math.sin(angle) * dist;
+
+      // Check bounds
+      if (tx < bounds.minX + 1 || tx > bounds.maxX - 1) continue;
+      if (tz < bounds.minZ + 1 || tz > bounds.maxZ - 1) continue;
+
+      // Check habitable
+      if (!isPositionHabitable(tx, tz, this.biomes, this.gridWidth, this.gridHeight)) continue;
+
+      return { x: tx, z: tz };
+    }
+
+    return null;
+  }
+
+  private pickRandomHabitablePosition(): { x: number; z: number } | null {
+    const bounds = getWorldBounds(this.gridWidth, this.gridHeight);
+
+    for (let attempt = 0; attempt < MAX_WANDER_ATTEMPTS * 3; attempt++) {
+      const tx = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+      const tz = bounds.minZ + Math.random() * (bounds.maxZ - bounds.minZ);
+
+      if (isPositionHabitable(tx, tz, this.biomes, this.gridWidth, this.gridHeight)) {
+        return { x: tx, z: tz };
+      }
+    }
+
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cleanup helper
+// ---------------------------------------------------------------------------
+
+function disposeMeshGroup(group: THREE.Group): void {
+  group.traverse((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      (obj.geometry as THREE.BufferGeometry).dispose();
+      const mat = obj.material as THREE.Material | THREE.Material[];
+      if (Array.isArray(mat)) {
+        for (const m of mat) m.dispose();
+      } else {
+        mat.dispose();
+      }
+    }
+  });
 }

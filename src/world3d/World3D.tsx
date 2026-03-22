@@ -1,14 +1,16 @@
 /**
  * React component hosting the Three.js 3D world view.
- * Manages canvas lifecycle, resize, and animation loop.
+ * Manages canvas lifecycle, resize, creature lifecycle, and animation loop.
  */
 
 import { useRef, useEffect } from 'react';
 import type { WorldState } from '../engine/index.ts';
-import { generateTerrain } from './terrain.ts';
+import { generateTerrain, getHeightAtWorldXZ } from './terrain.ts';
 import { createScene, updateTerrainMesh, resizeRenderer, renderFrame } from './scene.ts';
 import type { SceneContext } from './scene.ts';
-import { updateCreatures } from './creatures.ts';
+import { createCameraRig } from './camera.ts';
+import type { CameraRig } from './camera.ts';
+import { CreatureManager } from './creatures.ts';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -26,14 +28,17 @@ export function World3D({ worldState }: World3DProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<SceneContext | null>(null);
+  const cameraRef = useRef<CameraRig | null>(null);
+  const creaturesRef = useRef<CreatureManager | null>(null);
   const rafRef = useRef<number>(0);
   const worldStateRef = useRef(worldState);
+  const lastTimeRef = useRef(0);
 
   useEffect(() => {
     worldStateRef.current = worldState;
   }, [worldState]);
 
-  // Initialise Three.js scene
+  // Initialise Three.js scene, camera, creatures
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -41,29 +46,40 @@ export function World3D({ worldState }: World3DProps) {
     const ctx = createScene(canvas);
     ctxRef.current = ctx;
 
-    // Animation loop — updates creature animations each frame
+    const cameraRig = createCameraRig(canvas);
+    cameraRef.current = cameraRig;
+
+    const creatures = new CreatureManager(ctx.scene);
+    creaturesRef.current = creatures;
+
+    lastTimeRef.current = performance.now() / 1000;
+
+    // Animation loop
     function animate(): void {
       rafRef.current = requestAnimationFrame(animate);
-      const ws = worldStateRef.current;
-      const time = performance.now() / 1000;
+      const now = performance.now() / 1000;
+      const delta = Math.min(now - lastTimeRef.current, 0.1);
+      lastTimeRef.current = now;
 
-      updateCreatures(
-        ctx.scene,
-        ws.species,
-        ws.biomes,
-        ws.config.gridWidth,
-        ws.config.gridHeight,
-        time,
+      const ws = worldStateRef.current;
+
+      cameraRig.update(delta, (x, z) =>
+        getHeightAtWorldXZ(x, z, ws.biomes, ws.config.gridWidth, ws.config.gridHeight),
       );
 
-      renderFrame(ctx);
+      creatures.update(delta, now);
+
+      renderFrame(ctx, cameraRig.camera);
     }
     animate();
 
     return () => {
       cancelAnimationFrame(rafRef.current);
+      cameraRig.dispose();
       ctx.dispose();
       ctxRef.current = null;
+      cameraRef.current = null;
+      creaturesRef.current = null;
     };
   }, []);
 
@@ -74,19 +90,20 @@ export function World3D({ worldState }: World3DProps) {
 
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0] as ResizeObserverEntry | undefined;
-      if (!entry || !ctxRef.current) return;
+      if (!entry || !ctxRef.current || !cameraRef.current) return;
       const { width, height } = entry.contentRect;
       if (width > 0 && height > 0) {
         resizeRenderer(ctxRef.current, width, height);
+        cameraRef.current.handleResize(width, height);
       }
     });
 
     observer.observe(container);
 
-    // Initial size
     const rect = container.getBoundingClientRect();
-    if (ctxRef.current && rect.width > 0 && rect.height > 0) {
+    if (ctxRef.current && cameraRef.current && rect.width > 0 && rect.height > 0) {
       resizeRenderer(ctxRef.current, rect.width, rect.height);
+      cameraRef.current.handleResize(rect.width, rect.height);
     }
 
     return () => {
@@ -94,7 +111,7 @@ export function World3D({ worldState }: World3DProps) {
     };
   }, []);
 
-  // Update terrain when biomes change (temperature adjustment changes biome types)
+  // Update terrain when biomes change
   useEffect(() => {
     if (!ctxRef.current) return;
 
@@ -102,10 +119,26 @@ export function World3D({ worldState }: World3DProps) {
       worldState.biomes,
       worldState.config.gridWidth,
       worldState.config.gridHeight,
-      4,
     );
     updateTerrainMesh(ctxRef.current, data);
   }, [worldState.biomes, worldState.config.gridWidth, worldState.config.gridHeight]);
+
+  // Sync creatures with species
+  useEffect(() => {
+    if (!creaturesRef.current) return;
+
+    creaturesRef.current.syncSpecies(
+      worldState.species,
+      worldState.biomes,
+      worldState.config.gridWidth,
+      worldState.config.gridHeight,
+    );
+  }, [
+    worldState.species,
+    worldState.biomes,
+    worldState.config.gridWidth,
+    worldState.config.gridHeight,
+  ]);
 
   return (
     <div ref={containerRef} className="absolute inset-0">
