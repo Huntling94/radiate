@@ -43,6 +43,33 @@ These preferences were observed across 32 sessions of collaborative development 
 
 ---
 
+## Session 2 summary (2026-03-22)
+
+### What was built
+
+**v0.2 Chunk 9 — Species Cards / Bestiary (BRF-008 + BRF-008b):**
+- Species card detail view in sidebar: click any species in the list to see full traits with parent delta markers, lineage breadcrumb, biome distribution mini-grid, and filtered event history
+- Extinct species registry (`ExtinctSpecies` type on WorldState): archives every extinction with full Species data + `extinctionTick`, enabling complete lineage resolution back to seed species
+- Save migration for existing worlds (adds empty `extinctSpecies` array)
+- 4 new tests (82 total), 2 new BRFs
+
+### Commits (Session 2)
+1. `3c1e22e` — Species cards with extinct species registry
+
+### What's next (v0.2 remaining)
+
+| Chunk | Priority | Delivers | Dependencies |
+|-------|----------|----------|-------------|
+| 10 - Phylogenetic tree | Next | Visual branching tree of all species (living + extinct) | Builds directly on extinct species registry from chunk 9 |
+| 11 - Species share codes | After 10 | Export/import species as URL-encoded JSON | Species card provides the UI surface for share button |
+| 12 - Image export + tuning | Last | PNG export of world/species cards, edge-of-chaos regulator | Pairs with DDR-005 (simulation pacing) |
+
+### Active DDRs
+- DDR-005: Simulation pacing (resolve during chunk 12 tuning)
+- DDR-010: Simulation rollback/checkpoints (v0.2 — evaluate after phylogenetic tree)
+
+---
+
 ## Session 1 summary (2026-03-22)
 
 ### What was built
@@ -84,7 +111,7 @@ These preferences were observed across 32 sessions of collaborative development 
 |-------|--------|----------|
 | 7 - UI overhaul | Complete | Polished layout, trait bars, tick speed, responsive map |
 | 8 - Event log | Complete | Causal attribution, 12x8 world |
-| 9 - Species cards/bestiary | Not started | Detailed species view with traits, lineage, history |
+| 9 - Species cards/bestiary | Complete | Detailed species view with traits, lineage, history, extinct species registry |
 | 10 - Phylogenetic tree | Not started | Visual branching tree of evolutionary history |
 | 11 - Species share codes | Not started | Export/import species as URL-encoded JSON |
 | 12 - Image export + tuning | Not started | PNG export, edge-of-chaos regulator |
