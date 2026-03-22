@@ -60,26 +60,68 @@ These preferences were observed across 32 sessions of collaborative development 
 - Tab system in bottom panel (Events | Chart | Tree) replaces stacked layout
 - No new dependencies — custom DFS slot-based layout algorithm
 
+**3D World View — Phase 1: Terrain (BRF-010):**
+- Three.js 3D terrain generated from biome elevation/moisture data with vertex colours
+- Water plane at sea level, orbital camera (OrbitControls), species indicator billboards
+- Full-screen 3D canvas with toggleable dashboard sidebar overlay
+- All Three.js code isolated in `src/world3d/` per DDR-002 migration constraints
+- 6 new terrain tests (88 total)
+
+**3D World View — Phase 2: Creatures (BRF-011 → BRF-011b rethink):**
+- First attempt (BRF-011) used geometric primitives locked to biome cells — looked like a data visualisation, rejected after visual review
+- Rethink (BRF-011b): cute procedural creatures with rounded bodies, big heads, visible eyes
+- 3–8 representative creatures per species roaming freely across the map
+- Behaviour AI: producers sway, herbivores wander and flee, predators chase and catch prey
+- WASD exploration camera replaces orbit-only controls
+- Terrain scaled up (CELL_SIZE 4→10) for a larger explorable world
+- MeshToonMaterial for warmer aesthetic
+
+**Vision shift:** Owner commissioned external consultancy report identifying Babylon.js as the optimal long-term engine for the expanded vision (explorable world with playable character and building mechanics). Three.js chosen for Phase 1-2 to validate the 3D concept first. Migration checkpoint (DDR-012) before Phase 3.
+
 ### Commits (Session 2)
-1. `3c1e22e` — Species cards with extinct species registry
-2. (pending) — Phylogenetic tree with bottom panel tab system
+1. `3c1e22e` — Species cards with extinct species registry (BRF-008 + 008b)
+2. `f571d94` — Handover update
+3. `bc451a2` — Phylogenetic tree with bottom panel tabs (BRF-009)
+4. `a513d83` — DDR timeline updates for reprioritisation
+5. `5a18fba` — DDR-002 resolution + consultancy report + BRF-010 brief
+6. `ae4a8b2` — 3D terrain with Three.js (BRF-010)
+7. `e0bb107` — Genome-driven 3D creatures (BRF-011, superseded)
+8. `a730b6a` — Creature rework: cute representatives with behaviour AI (BRF-011b)
 
 ### Reprioritisation (Session 2)
 
-Species share codes (chunk 11) and image export (chunk 12) deferred — they deliver most value alongside the social backend (v0.3). 3D world view brought forward from v0.4 to follow phylogenetic tree. DDR-002 (3D rendering approach) must be resolved first.
+- Species share codes (chunk 11) and image export (chunk 12) **deferred to v0.3** — deliver most value alongside the social backend
+- 3D world view **brought forward from v0.4** — completed Phase 1 (terrain) and Phase 2 (creatures)
+- DDR-002 **resolved**: Three.js for Phase 1-2, Babylon.js for Phase 3+ (conditional on DDR-012 checkpoint)
+- DDR-012 **created**: migration checkpoint before player character phase
 
 ### What's next
 
-| Chunk | Priority | Delivers | Dependencies |
-|-------|----------|----------|-------------|
-| 11 - Species share codes | Deferred to v0.3 | Export/import species as URL-encoded JSON | Social backend (DDR-001) |
-| 12 - Image export + tuning | Deferred to v0.3 | PNG export, edge-of-chaos regulator | DDR-005 (simulation pacing) |
-| **NEW** - 3D world view | Next | Three.js low-poly terrain from biome data, orbital camera, species indicators | DDR-002 (rendering approach — pending) |
+| Feature | Priority | Delivers | Notes |
+|---------|----------|----------|-------|
+| **3D polish + terrain sculpting** | Next (Session 3) | Sky dome, better shading, click-to-select creatures. Player can reshape terrain elevation/moisture — first strategic intervention. | Combined BRF pending. Resolves DDR-009 (geographic features). |
+| Phase 3 — player character | After polish + sculpting | First/third-person camera, character on terrain | Triggers DDR-012 migration checkpoint |
+| Species share codes | Deferred to v0.3 | Export/import species as URL-encoded JSON | Social backend (DDR-001) |
+| Image export + tuning | Deferred to v0.3 | PNG export, edge-of-chaos regulator | DDR-005 (simulation pacing) |
 
 ### Active DDRs
-- DDR-002: 3D rendering approach (resolve before 3D implementation)
 - DDR-005: Simulation pacing (deferred to v0.3 tuning)
-- DDR-010: Simulation rollback/checkpoints (evaluate during v0.3)
+- DDR-009: Explicit geographic features layer (resolve during terrain sculpting)
+- DDR-010: Simulation rollback/checkpoints (v0.3)
+- DDR-012: Phase 2→3 engine migration checkpoint (after Phase 2, before player character)
+
+### Key decisions made this session
+1. **Extinct species are archived, not discarded** — `ExtinctSpecies` array on WorldState preserves full lineage for phylogenetic tree and species cards
+2. **3D view is a nature documentary, not a data visualisation** — small number of representative creatures with personality, not population heatmaps
+3. **Predator-prey behaviour is visual storytelling** — chase/flee/catch dramatises the Lotka-Volterra dynamics without changing the engine
+4. **Three.js now, Babylon.js later** — validate 3D concept cheaply, migrate at Phase 3 boundary if vision still includes player character
+
+### Architecture notes for next session
+- `src/world3d/` contains all Three.js code — no Three.js imports leak outside this directory
+- `terrain.ts` is pure TypeScript (no Three.js) — terrain generation logic survives engine migration
+- `creatures.ts` `CreatureManager` class manages creature lifecycle and behaviour — stateful, synced with WorldState each tick
+- `camera.ts` is a custom WASD+orbit rig — replaces Three.js OrbitControls
+- Dashboard overlay (species cards, phylogenetic tree, charts) floats over the 3D canvas via absolute positioning
 
 ---
 
