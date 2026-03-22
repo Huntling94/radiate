@@ -12,15 +12,23 @@ function getTemperatureLabel(temp: number): string {
   return 'Scorching — extreme heat stress';
 }
 
+function getTemperatureColour(temp: number): string {
+  if (temp < 0) return 'text-blue-400';
+  if (temp < 15) return 'text-cyan-400';
+  if (temp < 25) return 'text-emerald-400';
+  if (temp < 35) return 'text-amber-400';
+  return 'text-red-400';
+}
+
 export function TemperatureControl({ temperature, onTemperatureChange }: TemperatureControlProps) {
   return (
-    <div>
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-neutral-400">
+    <div className="rounded-lg border border-neutral-800/50 bg-neutral-900/50 p-3">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-neutral-500">
         Temperature
       </h2>
       <div className="flex items-center gap-3">
-        <span className="w-12 text-right text-sm text-neutral-300">
-          {String(Math.round(temperature))}°C
+        <span className={`w-12 text-right text-lg font-bold ${getTemperatureColour(temperature)}`}>
+          {String(Math.round(temperature))}°
         </span>
         <input
           type="range"
@@ -30,10 +38,10 @@ export function TemperatureControl({ temperature, onTemperatureChange }: Tempera
           onChange={(e) => {
             onTemperatureChange(Number(e.target.value));
           }}
-          className="h-2 flex-1 cursor-pointer appearance-none rounded-lg bg-neutral-700"
+          className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-neutral-700 accent-emerald-500"
         />
       </div>
-      <p className="mt-1 text-xs text-neutral-500">{getTemperatureLabel(temperature)}</p>
+      <p className="mt-1.5 text-[10px] text-neutral-600">{getTemperatureLabel(temperature)}</p>
     </div>
   );
 }

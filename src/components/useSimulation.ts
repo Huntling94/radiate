@@ -9,21 +9,27 @@ import { saveWorld, loadWorld, clearWorld } from '../data/persistence.ts';
 
 export interface PopulationSnapshot {
   tick: number;
-  populations: Record<string, number>; // species ID → total population
+  populations: Record<string, number>;
+  names: Record<string, string>;
 }
 
 const HISTORY_LENGTH = 200;
 const SAVE_INTERVAL_MS = 5000;
 
+export type TickSpeed = 0.5 | 1 | 2 | 5;
+const TICK_INTERVALS: Record<TickSpeed, number> = { 0.5: 2000, 1: 1000, 2: 500, 5: 200 };
+
 function takeSnapshot(state: WorldState): PopulationSnapshot {
   const populations: Record<string, number> = {};
+  const names: Record<string, string> = {};
   for (const species of state.species) {
     populations[species.id] = getTotalPopulation(species);
+    names[species.id] = species.name;
   }
-  return { tick: state.tick, populations };
+  return { tick: state.tick, populations, names };
 }
 
-function formatElapsed(seconds: number): string {
+export function formatElapsed(seconds: number): string {
   if (seconds < 60) return `${String(Math.round(seconds))}s`;
   if (seconds < 3600) return `${String(Math.round(seconds / 60))}m`;
   if (seconds < 86400) return `${String(Math.round(seconds / 3600))}h`;
@@ -33,20 +39,13 @@ function formatElapsed(seconds: number): string {
 /** Load saved state and perform offline catch-up. */
 function initializeState(seed: number): { state: WorldState; welcome: string | null } {
   const saved = loadWorld();
-  if (!saved) {
-    return { state: createInitialState(seed), welcome: null };
-  }
+  if (!saved) return { state: createInitialState(seed), welcome: null };
 
   const elapsed = (Date.now() - saved.lastTimestamp) / 1000;
-  if (elapsed <= 2) {
-    return { state: saved, welcome: null };
-  }
+  if (elapsed <= 2) return { state: saved, welcome: null };
 
   const catchUp = tick(saved, elapsed);
-
-  const speciesBefore = saved.species.length;
-  const speciesAfter = catchUp.species.length;
-  const newSpecies = speciesAfter - speciesBefore;
+  const newSpecies = catchUp.species.length - saved.species.length;
   const extinctions = catchUp.extinctSpeciesCount - saved.extinctSpeciesCount;
 
   let msg = `Welcome back! ${formatElapsed(elapsed)} elapsed.`;
@@ -66,8 +65,10 @@ export interface SimulationControls {
   speciesWithPopulation: Array<Species & { totalPopulation: number }>;
   isPaused: boolean;
   welcomeMessage: string | null;
+  tickSpeed: TickSpeed;
   togglePause: () => void;
   setTemperature: (temp: number) => void;
+  setTickSpeed: (speed: TickSpeed) => void;
   newGame: () => void;
   dismissWelcome: () => void;
 }
@@ -78,17 +79,18 @@ export function useSimulation(seed = 42): SimulationControls {
   const [history, setHistory] = useState<PopulationSnapshot[]>(() => [takeSnapshot(initialState)]);
   const [isPaused, setIsPaused] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState<string | null>(initialWelcome);
+  const [tickSpeed, setTickSpeed] = useState<TickSpeed>(1);
   const lastTickTime = useRef(0);
 
-  // Initialize tick timer
   useEffect(() => {
     lastTickTime.current = Date.now();
   }, []);
 
-  // Tick loop
+  // Tick loop — interval adjusts with tick speed
   useEffect(() => {
     if (isPaused) return;
 
+    const intervalMs = TICK_INTERVALS[tickSpeed];
     const interval = setInterval(() => {
       const now = Date.now();
       const elapsed = (now - lastTickTime.current) / 1000;
@@ -96,23 +98,21 @@ export function useSimulation(seed = 42): SimulationControls {
 
       setWorldState((prev) => {
         const next = tick(prev, elapsed);
-
         setHistory((prevHistory) => {
           const snapshot = takeSnapshot(next);
           const updated = [...prevHistory, snapshot];
           return updated.length > HISTORY_LENGTH ? updated.slice(-HISTORY_LENGTH) : updated;
         });
-
         return next;
       });
-    }, 1000);
+    }, intervalMs);
 
     return () => {
       clearInterval(interval);
     };
-  }, [isPaused]);
+  }, [isPaused, tickSpeed]);
 
-  // Auto-save on interval
+  // Auto-save
   useEffect(() => {
     const interval = setInterval(() => {
       setWorldState((current) => {
@@ -120,7 +120,6 @@ export function useSimulation(seed = 42): SimulationControls {
         return current;
       });
     }, SAVE_INTERVAL_MS);
-
     return () => {
       clearInterval(interval);
     };
@@ -128,7 +127,7 @@ export function useSimulation(seed = 42): SimulationControls {
 
   // Save on tab blur
   useEffect(() => {
-    const handleVisibilityChange = () => {
+    const handler = () => {
       if (document.hidden) {
         setWorldState((current) => {
           saveWorld(current);
@@ -136,17 +135,14 @@ export function useSimulation(seed = 42): SimulationControls {
         });
       }
     };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handler);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handler);
     };
   }, []);
 
   const togglePause = useCallback(() => {
-    if (isPaused) {
-      lastTickTime.current = Date.now();
-    }
+    if (isPaused) lastTickTime.current = Date.now();
     setIsPaused((p) => !p);
   }, [isPaused]);
 
@@ -179,8 +175,10 @@ export function useSimulation(seed = 42): SimulationControls {
     speciesWithPopulation,
     isPaused,
     welcomeMessage,
+    tickSpeed,
     togglePause,
     setTemperature,
+    setTickSpeed,
     newGame,
     dismissWelcome,
   };
