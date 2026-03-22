@@ -33,7 +33,7 @@ export function loadWorld(): WorldState | null {
 
     // Migrate: add fields introduced after initial save format.
     // Saved data may lack fields added in later versions.
-    const state = data.state as Record<string, unknown>;
+    const state = data.state as unknown as Record<string, unknown>;
     if (!Array.isArray(state['events'])) {
       state['events'] = [];
     }

@@ -122,6 +122,7 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 | # | Lesson | Root Cause | Prevention Rule |
 |---|--------|-----------|-----------------|
 | 1 | Adding fields to WorldState breaks saved games | Old localStorage saves lack new fields, causing TypeError on load | Always add migration logic in `loadWorld()` when adding fields to WorldState. Test with a save from the previous format. |
+| 2 | `tsc --noEmit` passes but `tsc -b` (build mode) fails | Build mode uses project references and stricter checking. Type casts that pass `--noEmit` can fail in `-b` mode. | Run `npm run build` (which uses `tsc -b`) before declaring work complete, not just `tsc --noEmit`. |
 
 ## Feature registry
 
