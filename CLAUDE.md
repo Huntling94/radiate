@@ -1,0 +1,128 @@
+# CLAUDE.md — Radiate
+
+> Idle evolution ecosystem builder with genuine emergent simulation and a living social metagame.
+
+## Commands
+
+- `npm run dev` — Start Vite dev server
+- `npm run build` — Production build
+- `npx tsc --noEmit` — Type-check (run before every commit)
+- `npm test` — Run Vitest suite
+
+## Essential context
+
+- **Read `HANDOVER.md` at session start.** It has project context, owner working preferences, and the phased roadmap.
+- **Read `DEFERRED_DECISIONS.md` before proposing new features.** The decision may already be deferred with context.
+- **Vision document:** `docs/20260322_vision.md` — full product vision, target market, game loop design.
+
+## Owner working style (non-negotiable)
+
+- **Brief before code.** No medium+ feature without an implementation brief and explicit approval. Use `/plan`.
+- **Explain the why.** Will is learning game dev. Explain new concepts, patterns, and trade-offs when they arise.
+- **Challenge assumptions.** Present options with trade-offs, not defaults. When Will asks "how do others do this?" — survey approaches genuinely.
+- **Consultancy reports for big decisions.** Offer a simulated SME panel report before major architectural choices.
+- **Keep governance current.** Update DEFERRED_DECISIONS.md, lessons learned, and feature registry as work progresses.
+- **Session handovers.** Offer a handover summary at end of each session (what was built, decisions made, what's next).
+
+## Architecture boundaries
+
+```
+src/engine/  →  WorldState  →  src/components/
+```
+
+- Engine modules NEVER import from components.
+- Components NEVER import from engine directly — they consume WorldState.
+- Engine is pure TypeScript. No DOM, no React, no side effects. Must run headless.
+- All persistence through `src/data/` layer, never direct localStorage in components.
+
+## Code conventions
+
+- TypeScript strict mode. No `any`.
+- Functional React components only. Tailwind for styling.
+- Vitest for tests. Engine functions must have unit tests. Tests live next to source files.
+- Git: imperative commit messages, < 72 chars. Small focused commits.
+- `npx tsc --noEmit` must pass before any commit.
+
+## Quality framework
+
+> Claude is the sole developer. There is no human code reviewer.
+> Quality is enforced through automated gates and structured process.
+
+### Automated gates (pre-commit)
+
+Every commit passes through a pre-commit hook (Husky + lint-staged). No bypass.
+
+| Gate | Tool | What it catches |
+|------|------|-----------------|
+| Type safety | `tsc --noEmit` | Type errors, strict mode violations |
+| Tests | `vitest run` | Regressions, broken simulation contracts |
+| Lint | `eslint` | Code smells, unused vars, architecture boundary violations |
+| Format | `prettier --check` | Style inconsistency |
+
+If any gate fails, the commit is rejected. Fix the root cause.
+
+### Architecture enforcement
+
+The engine/component boundary is enforced at lint time via ESLint's `no-restricted-imports` rule. Engine files cannot import from `src/components/`. This is structural, not discretionary.
+
+### Testing standards
+
+**Engine (`src/engine/`)** — institutional quality:
+- Every exported function gets a unit test. No exceptions.
+- Tests are pure: given input X, expect output Y. No mocks.
+- Deterministic simulation tests: seed a WorldState, tick N times, assert properties (not exact values).
+- Invariant tests: conservation laws, no negative populations, valid parent-child species relationships.
+- Offline/time-jump tests: verify `tick()` produces sane results for delta = 1s, 60s, 3600s, 86400s, 604800s.
+- Coverage target: 80% on `src/engine/`. Revisit at v0.2.
+
+**Components (`src/components/`)** — pragmatic coverage:
+- Test complex derived logic (formatters, calculators). Skip pure render tests.
+- No coverage threshold. Coverage is a byproduct, not a target.
+
+**Test co-location:** `<module>.test.ts` next to `<module>.ts`.
+
+### Simulation-specific quality
+
+- **Seed-based reproducibility.** The simulation RNG accepts a seed. Tests use fixed seeds. This also enables replay and bug reports ("seed X, tick Y").
+- **WorldState snapshot tests.** 3–5 canonical scenarios: known initial state → fixed seed → N ticks → snapshot result. Catches unintended behavioural changes during refactors.
+
+### Velocity/robustness heuristic
+
+> "Can we change this later without rewriting what depends on it?"
+
+| Answer | Action | Examples |
+|--------|--------|----------|
+| **No** — it's a contract | Slow down. Brief first. Test thoroughly. | WorldState shape, engine interfaces, tick loop, persistence format |
+| **Yes** — it's an implementation detail | Move fast. Refactor freely later. | Component styling, chart config, UI layout, tooltip text |
+
+### Process quality (the reviewer replacement)
+
+1. **Post-implementation explanation.** After building a feature, Claude explains: what was built, which pattern was chosen, what alternative was rejected and why. This builds Will's mental model over time.
+2. **Mandatory lessons learned.** Any rework gets a row in the Lessons Learned table. No silent fixes.
+3. **Architecture Decision Records.** When a pattern constrains future options, document it in `docs/adr/NNN-title.md` before implementing. Half a page max. Three sections: Context (why this decision arose), Decision (what we chose), Consequences (what's easier/harder now). Written before implementation, reviewed by Will — this is where architectural judgement is exercised. Expected: 3–5 ADRs for v0.1.
+
+## Design principles
+
+1. **Simulation is the product.** Does this make the simulation more interesting or more legible?
+2. **Engine before renderer.** Simulation works headless. Rendering is a view of state.
+3. **Idle-native.** Time jumps, offline catch-up, notifications are structural.
+4. **Emergence over scripting.** No predetermined evolution paths.
+5. **Legibility over realism.** Causal attribution makes every outcome explicable.
+6. **Brief before code.** Speed makes discipline more important, not less.
+7. **Defer consciously.** Every "later" gets a DDR entry.
+
+## Current phase
+
+**v0.1 "First Life"** — Core simulation engine, 2D biome map, population charts, species list, one environmental control (temperature), offline progression, GitHub Pages deploy.
+
+## Lessons learned
+
+| # | Lesson | Root Cause | Prevention Rule |
+|---|--------|-----------|-----------------|
+| — | (None yet — add lessons as the project progresses) | | |
+
+## Feature registry
+
+| # | Feature | Phase | Status |
+|---|---------|-------|--------|
+| — | (None yet) | | |
