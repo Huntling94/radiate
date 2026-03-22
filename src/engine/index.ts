@@ -20,3 +20,9 @@ export {
 
 export type { Rng } from './rng.ts';
 export { createRng, createRngFromState } from './rng.ts';
+
+export { deriveBiomeType, BIOME_COLOURS, isHabitable } from './biome.ts';
+
+export { createInitialState } from './factory.ts';
+
+export { tick } from './tick.ts';
