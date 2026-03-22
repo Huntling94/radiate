@@ -89,6 +89,13 @@ function elevationToHeight(elevation: number, biomeType: BiomeType): number {
   return elevation * MAX_HEIGHT;
 }
 
+/** Deterministic colour noise from vertex position — returns ±0.05. */
+function vertexColourNoise(vx: number, vy: number): number {
+  // Simple hash for deterministic variation
+  const h = Math.sin(vx * 127.1 + vy * 311.7) * 43758.5453;
+  return (h - Math.floor(h)) * 0.1 - 0.05;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -131,11 +138,12 @@ export function generateTerrain(
       positions[idx * 3 + 1] = wy;
       positions[idx * 3 + 2] = wz;
 
-      // Vertex colour
+      // Vertex colour with subtle variation for visual depth
       const rgb = BIOME_COLOURS_RGB[biomeType];
-      colours[idx * 3] = rgb[0];
-      colours[idx * 3 + 1] = rgb[1];
-      colours[idx * 3 + 2] = rgb[2];
+      const variation = vertexColourNoise(vx, vy);
+      colours[idx * 3] = Math.max(0, Math.min(1, rgb[0] + variation));
+      colours[idx * 3 + 1] = Math.max(0, Math.min(1, rgb[1] + variation * 0.8));
+      colours[idx * 3 + 2] = Math.max(0, Math.min(1, rgb[2] + variation * 0.6));
     }
   }
 

@@ -8,7 +8,7 @@ import type { WorldState } from '../engine/index.ts';
 import { generateTerrain } from './terrain.ts';
 import { createScene, updateTerrainMesh, resizeRenderer, renderFrame } from './scene.ts';
 import type { SceneContext } from './scene.ts';
-import { updateIndicators } from './indicators.ts';
+import { updateCreatures } from './creatures.ts';
 
 // ---------------------------------------------------------------------------
 // Props
@@ -27,6 +27,11 @@ export function World3D({ worldState }: World3DProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const ctxRef = useRef<SceneContext | null>(null);
   const rafRef = useRef<number>(0);
+  const worldStateRef = useRef(worldState);
+
+  useEffect(() => {
+    worldStateRef.current = worldState;
+  }, [worldState]);
 
   // Initialise Three.js scene
   useEffect(() => {
@@ -36,9 +41,21 @@ export function World3D({ worldState }: World3DProps) {
     const ctx = createScene(canvas);
     ctxRef.current = ctx;
 
-    // Animation loop
+    // Animation loop — updates creature animations each frame
     function animate(): void {
       rafRef.current = requestAnimationFrame(animate);
+      const ws = worldStateRef.current;
+      const time = performance.now() / 1000;
+
+      updateCreatures(
+        ctx.scene,
+        ws.species,
+        ws.biomes,
+        ws.config.gridWidth,
+        ws.config.gridHeight,
+        time,
+      );
+
       renderFrame(ctx);
     }
     animate();
@@ -89,24 +106,6 @@ export function World3D({ worldState }: World3DProps) {
     );
     updateTerrainMesh(ctxRef.current, data);
   }, [worldState.biomes, worldState.config.gridWidth, worldState.config.gridHeight]);
-
-  // Update species indicators
-  useEffect(() => {
-    if (!ctxRef.current) return;
-
-    updateIndicators(
-      ctxRef.current.scene,
-      worldState.species,
-      worldState.biomes,
-      worldState.config.gridWidth,
-      worldState.config.gridHeight,
-    );
-  }, [
-    worldState.species,
-    worldState.biomes,
-    worldState.config.gridWidth,
-    worldState.config.gridHeight,
-  ]);
 
   return (
     <div ref={containerRef} className="absolute inset-0">
