@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { tick } from './tick.ts';
 import { createInitialState } from './factory.ts';
+import type { WorldState } from './types.ts';
 import { getTotalPopulation } from './types.ts';
 
 function makeState(seed = 42) {
@@ -236,5 +237,104 @@ describe('tick', () => {
 
     // Herbivore should have declined (or gone extinct) without producers
     expect(herbPopAfter).toBeLessThan(herbPopBefore);
+  });
+
+  // T14: Energy-derived producer K — forest biomes support more producers than deserts
+  it('producers grow larger populations in forest biomes than desert biomes', () => {
+    const state = makeState();
+
+    // Find a forest and a desert biome
+    const forestBiome = state.biomes.find((b) => b.biomeType === 'forest');
+    const desertBiome = state.biomes.find((b) => b.biomeType === 'desert');
+    if (!forestBiome || !desertBiome) return; // skip if seed doesn't produce both
+
+    // Create a controlled state with one producer species in both biomes
+    const producer = state.species.find((s) => s.trophicLevel === 'producer');
+    if (!producer) return;
+
+    // Set equal starting populations
+    const controlled: WorldState = {
+      ...state,
+      species: [
+        {
+          ...producer,
+          genome: [...producer.genome],
+          originalGenome: [...producer.originalGenome],
+          populationByBiome: {
+            [forestBiome.id]: 100,
+            [desertBiome.id]: 100,
+          },
+        },
+      ],
+    };
+
+    // Run 50 ticks
+    let result = controlled;
+    for (let i = 0; i < 50; i++) {
+      result = tick(result, 1);
+    }
+
+    expect(result.species.length).toBeGreaterThan(0);
+    const forestPop = result.species[0].populationByBiome[forestBiome.id] ?? 0;
+    const desertPop = result.species[0].populationByBiome[desertBiome.id] ?? 0;
+
+    expect(forestPop).toBeGreaterThan(desertPop);
+  });
+
+  // T15: Metabolism trait affects growth rate
+  it('high-metabolism producer grows faster initially than low-metabolism', () => {
+    const state = makeState();
+    const forestBiome = state.biomes.find((b) => b.biomeType === 'forest');
+    if (!forestBiome) return;
+
+    const baseGenome = [0.4, 0.2, 0.5, 0.5, 0.3, 0.8]; // size, speed, cold, heat, metabolism, repro
+
+    const lowMetabolism: WorldState = {
+      ...state,
+      species: [
+        {
+          id: 'low-meta',
+          name: 'Low Meta',
+          genome: [...baseGenome.slice(0, 4), 0.1, ...baseGenome.slice(5)],
+          originalGenome: [...baseGenome.slice(0, 4), 0.1, ...baseGenome.slice(5)],
+          populationByBiome: { [forestBiome.id]: 50 },
+          trophicLevel: 'producer' as const,
+          parentSpeciesId: null,
+          originTick: 0,
+          generation: 0,
+        },
+      ],
+    };
+
+    const highMetabolism: WorldState = {
+      ...state,
+      species: [
+        {
+          id: 'high-meta',
+          name: 'High Meta',
+          genome: [...baseGenome.slice(0, 4), 2.0, ...baseGenome.slice(5)],
+          originalGenome: [...baseGenome.slice(0, 4), 2.0, ...baseGenome.slice(5)],
+          populationByBiome: { [forestBiome.id]: 50 },
+          trophicLevel: 'producer' as const,
+          parentSpeciesId: null,
+          originTick: 0,
+          generation: 0,
+        },
+      ],
+    };
+
+    // Run 10 ticks — short horizon to measure initial growth rate
+    let lowResult = lowMetabolism;
+    let highResult = highMetabolism;
+    for (let i = 0; i < 10; i++) {
+      lowResult = tick(lowResult, 1);
+      highResult = tick(highResult, 1);
+    }
+
+    const lowPop = lowResult.species[0]?.populationByBiome[forestBiome.id] ?? 0;
+    const highPop = highResult.species[0]?.populationByBiome[forestBiome.id] ?? 0;
+
+    // High metabolism gives faster growth rate, so should have grown more
+    expect(highPop).toBeGreaterThan(lowPop);
   });
 });

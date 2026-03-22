@@ -44,3 +44,10 @@ export { generateSpeciesName } from './names.ts';
 
 export type { SculptAction } from './sculpt.ts';
 export { applySculpt } from './sculpt.ts';
+
+export {
+  moistureFactor,
+  temperatureFactor,
+  computeBiomeEnergy,
+  computeProducerK,
+} from './energy.ts';

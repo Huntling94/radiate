@@ -16,6 +16,7 @@ import type { InteractionMatrix } from './interactions.ts';
 import { mutateGenome } from './genome.ts';
 import { checkSpeciation } from './speciation.ts';
 import { computeFitnessModifier, updateBiomeTypes } from './environment.ts';
+import { computeProducerK } from './energy.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,9 +54,10 @@ function updateSpeciesPopulation(
   const pop = currentPops[speciesIdx] ?? 0;
   if (pop <= 0 || carryingCapacity <= 0) return 0;
 
-  // Growth rate from reproduction trait, modified by environmental fitness
+  // Growth rate from reproduction trait and metabolism, modified by environmental fitness
   const traits = expressTraits(species.genome);
-  const r = BASE_GROWTH_RATE * (0.5 + traits.reproductionRate) * fitnessModifier;
+  const metabolismBoost = 0.8 + traits.metabolism * 0.2;
+  const r = BASE_GROWTH_RATE * (0.5 + traits.reproductionRate) * metabolismBoost * fitnessModifier;
 
   // Consumers (herbivores, predators) need food to sustain population.
   // Check if any prey exists in this biome — if not, apply starvation.
@@ -127,10 +129,12 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
   // Update biome types based on current temperature
   const biomes = updateBiomeTypes(state.biomes, state.temperature);
 
-  // Build carrying capacity lookup
-  const carryingCapacity = new Map<string, number>();
+  // Build carrying capacity lookups: energy-derived for producers, base for consumers
+  const producerCarryingCapacity = new Map<string, number>();
+  const consumerCarryingCapacity = new Map<string, number>();
   for (const biome of biomes) {
-    carryingCapacity.set(biome.id, biome.baseCarryingCapacity);
+    producerCarryingCapacity.set(biome.id, computeProducerK(biome, state.temperature));
+    consumerCarryingCapacity.set(biome.id, biome.baseCarryingCapacity);
   }
 
   // Deep clone species populations and genomes for mutation
@@ -173,7 +177,10 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
       const biomeIds = Object.keys(species.populationByBiome);
 
       for (const biomeId of biomeIds) {
-        const k = carryingCapacity.get(biomeId) ?? 0;
+        const k =
+          species.trophicLevel === 'producer'
+            ? (producerCarryingCapacity.get(biomeId) ?? 0)
+            : (consumerCarryingCapacity.get(biomeId) ?? 0);
         const newPop = updateSpeciesPopulation(
           i,
           biomeId,

@@ -1,0 +1,1754 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Energy System Architecture — Joint Consultancy Report</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 2cm 2.5cm;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.55;
+        color: #1a1a1a;
+        max-width: 750px;
+        margin: 0 auto;
+        padding: 2cm 2.5cm;
+      }
+      h1 {
+        font-size: 20pt;
+        font-weight: 700;
+        color: #0d2137;
+        margin-bottom: 4pt;
+        letter-spacing: -0.3px;
+      }
+      h2 {
+        font-size: 14pt;
+        font-weight: 700;
+        color: #0d2137;
+        margin-top: 28pt;
+        margin-bottom: 10pt;
+        border-bottom: 2px solid #0d2137;
+        padding-bottom: 4pt;
+      }
+      h3 {
+        font-size: 11.5pt;
+        font-weight: 700;
+        color: #1a3a5c;
+        margin-top: 18pt;
+        margin-bottom: 6pt;
+      }
+      h4 {
+        font-size: 10.5pt;
+        font-weight: 700;
+        color: #333;
+        margin-top: 14pt;
+        margin-bottom: 4pt;
+      }
+      p {
+        margin-bottom: 8pt;
+      }
+      .subtitle {
+        font-size: 11pt;
+        color: #555;
+        margin-bottom: 2pt;
+      }
+      .meta {
+        font-size: 9pt;
+        color: #777;
+        margin-bottom: 20pt;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      strong {
+        font-weight: 700;
+      }
+
+      /* Executive summary bullets */
+      .scr ul {
+        margin-left: 0;
+        padding-left: 16pt;
+        margin-bottom: 10pt;
+        list-style-type: disc;
+      }
+      .scr ul ul {
+        list-style-type: '– ';
+        margin-top: 2pt;
+        margin-bottom: 2pt;
+      }
+      .scr li {
+        margin-bottom: 4pt;
+      }
+
+      /* Tables */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 10pt 0 14pt 0;
+        font-size: 9.5pt;
+      }
+      th {
+        background: #0d2137;
+        color: #fff;
+        font-weight: 600;
+        text-align: left;
+        padding: 6pt 8pt;
+      }
+      td {
+        padding: 5pt 8pt;
+        border-bottom: 1px solid #ddd;
+        vertical-align: top;
+      }
+      tr:nth-child(even) td {
+        background: #f7f9fb;
+      }
+      .score {
+        text-align: center;
+        font-weight: 700;
+      }
+      .score-high {
+        color: #1a7a3a;
+      }
+      .score-mid {
+        color: #b87a00;
+      }
+      .score-low {
+        color: #c0392b;
+      }
+
+      /* TOC */
+      .toc {
+        margin: 14pt 0 20pt 0;
+      }
+      .toc table {
+        font-size: 10pt;
+      }
+      .toc td {
+        padding: 3pt 8pt;
+        border-bottom: 1px dotted #ccc;
+      }
+      .toc td:last-child {
+        text-align: right;
+        white-space: nowrap;
+      }
+      .toc a {
+        color: #1a3a5c;
+        text-decoration: none;
+      }
+      .toc a:hover {
+        text-decoration: underline;
+      }
+
+      /* DVF matrix placeholder */
+      .matrix-container {
+        text-align: center;
+        margin: 16pt 0;
+      }
+      .matrix-svg {
+        max-width: 100%;
+      }
+
+      /* Glossary */
+      .glossary td:first-child {
+        font-weight: 600;
+        white-space: nowrap;
+        width: 180pt;
+      }
+
+      /* Callout box */
+      .callout {
+        background: #f0f4f8;
+        border-left: 4px solid #1a3a5c;
+        padding: 10pt 14pt;
+        margin: 12pt 0;
+        font-size: 10pt;
+      }
+      .callout-warn {
+        border-left-color: #c0392b;
+        background: #fdf2f2;
+      }
+      .callout strong {
+        color: #0d2137;
+      }
+
+      /* Panel table */
+      .panel-table td:first-child {
+        font-weight: 600;
+        width: 180pt;
+      }
+
+      /* References */
+      .ref {
+        font-size: 9pt;
+        color: #555;
+      }
+      .ref a {
+        color: #1a3a5c;
+      }
+
+      /* Footer */
+      .footer {
+        margin-top: 30pt;
+        padding-top: 10pt;
+        border-top: 1px solid #ccc;
+        font-size: 8.5pt;
+        color: #999;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Energy System Architecture</h1>
+    <p class="subtitle">Joint Consultancy Report — Simulation Engine Evolution</p>
+    <p class="subtitle">Radiate: Idle Evolution Ecosystem Builder</p>
+    <p class="meta">
+      Commissioned: 22 March 2026 &nbsp;|&nbsp; Decision: How should trophic energy flow be modelled
+      in the simulation engine? &nbsp;|&nbsp; Status: RECOMMENDATION READY
+    </p>
+
+    <hr style="border: none; border-top: 2px solid #0d2137; margin: 16pt 0" />
+
+    <!-- ================================================================ -->
+    <h2 id="panel">Panel Composition</h2>
+
+    <table class="panel-table">
+      <tr>
+        <th>Role</th>
+        <th>Expertise</th>
+        <th>Perspective</th>
+      </tr>
+      <tr>
+        <td>Computational Ecologist</td>
+        <td>
+          12 years modelling ecosystem dynamics. Published on energy-budget models in
+          <em>Ecology Letters</em> and <em>PNAS</em>. Built agent-based food-web simulators for
+          CSIRO and NOAA.
+        </td>
+        <td>Ecological realism, model validity, emergent properties, scientific grounding.</td>
+      </tr>
+      <tr>
+        <td>Game Systems Designer</td>
+        <td>
+          8 years designing simulation games. Lead designer on two published ecosystem management
+          games. Specialist in "legible emergence" — making complex systems intuitive to players.
+        </td>
+        <td>Player comprehension, feedback loops, tuning difficulty, fun vs realism trade-offs.</td>
+      </tr>
+      <tr>
+        <td>Performance &amp; Architecture Engineer</td>
+        <td>
+          10 years building browser-based simulation engines. Optimised population dynamics solvers
+          to run at 60fps on mobile. TypeScript/WebAssembly specialist.
+        </td>
+        <td>
+          Computational cost, numerical stability, testability, migration risk, architectural
+          cleanliness.
+        </td>
+      </tr>
+    </table>
+
+    <!-- ================================================================ -->
+    <h2 id="toc">Table of Contents</h2>
+    <div class="toc">
+      <table>
+        <tr>
+          <td>
+            <a href="#panel">Panel Composition</a> — Simulated expert panel and their perspectives
+          </td>
+          <td><a href="#panel">1</a></td>
+        </tr>
+        <tr>
+          <td><a href="#exec">Executive Summary</a> — Situation, Complication, Resolution (SCR)</td>
+          <td><a href="#exec">1</a></td>
+        </tr>
+        <tr>
+          <td>
+            <a href="#current">Current State Analysis</a> — How the engine works today and its
+            limitations
+          </td>
+          <td><a href="#current">3</a></td>
+        </tr>
+        <tr>
+          <td><a href="#approaches">Candidate Approaches</a> — Four architectures evaluated</td>
+          <td><a href="#approaches">4</a></td>
+        </tr>
+        <tr>
+          <td>
+            <a href="#dvf">DVF Assessment</a> — Desirability, Viability, Feasibility scoring and
+            2&times;2 matrix
+          </td>
+          <td><a href="#dvf">7</a></td>
+        </tr>
+        <tr>
+          <td>
+            <a href="#deep">Deep-Dive: Recommended Approach</a> — Detailed design of the hybrid
+            model
+          </td>
+          <td><a href="#deep">9</a></td>
+        </tr>
+        <tr>
+          <td>
+            <a href="#dissent">Obligation to Dissent</a> — Panel disagreements and minority views
+          </td>
+          <td><a href="#dissent">11</a></td>
+        </tr>
+        <tr>
+          <td>
+            <a href="#roadmap">Implementation Roadmap</a> — Phased delivery with engine/UX
+            separation
+          </td>
+          <td><a href="#roadmap">12</a></td>
+        </tr>
+        <tr>
+          <td><a href="#glossary">Appendix: Glossary</a> — Key terms and definitions</td>
+          <td><a href="#glossary">13</a></td>
+        </tr>
+        <tr>
+          <td><a href="#refs">Appendix: References</a> — Academic and industry sources</td>
+          <td><a href="#refs">14</a></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="exec">Executive Summary</h2>
+
+    <div class="scr">
+      <h3>Situation</h3>
+      <ul>
+        <li>
+          <strong>Radiate's simulation engine uses generalised Lotka-Volterra equations</strong> to
+          model multi-species population dynamics across a 96-biome world.
+          <ul>
+            <li>
+              Population growth is governed by a carrying capacity (K=500 per biome), trait-derived
+              interaction coefficients, and temperature-based fitness modifiers
+            </li>
+            <li>
+              The model produces plausible predator-prey oscillations and competitive exclusion
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>The current model has no concept of energy.</strong> Carrying capacity is a static
+          number, identical across all habitable biomes regardless of biome type, elevation, or
+          moisture.
+          <ul>
+            <li>
+              A desert supports the same K=500 as a lush forest — biologically implausible and
+              strategically uninteresting
+            </li>
+            <li>
+              Producers, herbivores, and predators all compete against the same K, with no trophic
+              energy budget constraining how much life a biome can sustain
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong
+            >Terrain sculpting (BRF-012) now lets the player reshape elevation and moisture</strong
+          >, which changes biome types. This creates a natural demand for biome type to matter — the
+          player expects that creating a forest should produce more life than creating a desert.
+        </li>
+      </ul>
+
+      <h3>Complication</h3>
+      <ul>
+        <li>
+          <strong>Simply varying K by biome type is insufficient.</strong> It would make forests
+          "better" than deserts but would not model <em>why</em> — there is no causal chain from
+          sunlight to plant biomass to herbivore support.
+          <ul>
+            <li>
+              Without energy flow, the simulation cannot produce genuinely emergent trophic cascades
+              — e.g., removing all herbivores should cause producer overgrowth and predator
+              starvation, but the current model does not propagate these effects through energy
+              budgets
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong
+            >The engine rework must not entangle with the planned Babylon.js UX migration</strong
+          >
+          (DDR-012). The owner explicitly requires engine and rendering work to be separated.
+          <ul>
+            <li>
+              Energy system changes are pure engine (<code>src/engine/</code>) — no Three.js
+              dependency, fully testable headless
+            </li>
+            <li>
+              The Babylon.js migration is purely rendering (<code>src/world3d/</code>) — no
+              simulation logic
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Four candidate architectures exist</strong>, ranging from minimal enhancement to
+          full replacement of the population dynamics model. Each carries different trade-offs in
+          realism, legibility, implementation cost, and tuning difficulty.
+        </li>
+      </ul>
+
+      <h3>Resolution</h3>
+      <ul>
+        <li>
+          <strong
+            >The panel recommends Approach B: Hybrid Lotka-Volterra with Energy-Derived Carrying
+            Capacity</strong
+          >
+          (unanimous, confidence 8.5/10).
+          <ul>
+            <li>
+              Retain the proven Lotka-Volterra population solver but replace the static K=500 with a
+              <strong>dynamic carrying capacity derived from trophic energy flow</strong>
+            </li>
+            <li>
+              Solar energy flows into biomes based on type (forests produce more than deserts), is
+              consumed by producers, transferred to herbivores, and then to predators — each level
+              constrained by the energy available below it
+            </li>
+            <li>
+              This creates a <strong>causal chain the player can reason about</strong>: sculpt
+              terrain to create forest → more plant energy → more herbivore carrying capacity → more
+              predator support
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>The architecture preserves the existing simulation contract.</strong> WorldState
+          shape changes are additive (new fields on Biome, new energy-related traits). All existing
+          tests remain valid. The Lotka-Volterra solver is refactored, not replaced.
+          <ul>
+            <li>
+              Estimated implementation: <strong>2 sub-briefs</strong> — (1) biome energy production
+              + producer carrying capacity, (2) trophic transfer to consumers
+            </li>
+            <li>Estimated test additions: 15-20 new engine tests</li>
+          </ul>
+        </li>
+        <li>
+          <strong>Approach A (pure energy flow) was rejected</strong> despite higher ecological
+          realism — it replaces the entire population dynamics model, introducing significant tuning
+          risk and regression potential.
+          <ul>
+            <li>
+              Approach C (Metabolic Theory of Ecology) was rejected as over-engineered — the
+              allometric scaling laws add complexity that is invisible to the player
+            </li>
+            <li>
+              Approach D (agent-based energy) was rejected as premature — it requires
+              individual-level simulation (DDR-011) which has a ~500x computational cost increase
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="current">Current State Analysis</h2>
+
+    <h3>How the simulation works today</h3>
+
+    <p>
+      The engine runs a <strong>generalised Lotka-Volterra competition model</strong> (Volterra,
+      1926; Lotka, 1932) with Euler integration, stochastic noise, and sub-tick stepping for
+      numerical stability. The core equation per species <em>i</em> in biome <em>b</em>:
+    </p>
+
+    <div class="callout">
+      <strong
+        >dP<sub>i</sub>/dt = r<sub>i</sub> &times; P<sub>i</sub> &times; (1 &minus;
+        &Sigma;<sub>j</sub>(a<sub>ij</sub> &times; P<sub>j</sub>) / K<sub>b</sub>) + noise</strong
+      >
+      <br /><br />
+      Where r<sub>i</sub> = growth rate (from genome traits &times; temperature fitness), a<sub
+        >ij</sub
+      >
+      = interaction coefficient (competition, predation), K<sub>b</sub> = carrying capacity of biome
+      b, noise = stochastic perturbation.
+    </div>
+
+    <p>
+      Key parameters: <strong>BASE_GROWTH_RATE = 0.15</strong>,
+      <strong>K = 500 for all habitable biomes</strong>,
+      <strong>PREDATION_BENEFIT = &minus;0.8</strong>, <strong>PREDATION_COST = 0.6</strong>,
+      <strong>SELF_COMPETITION = 1.0</strong>.
+    </p>
+
+    <h3>What works well</h3>
+    <ul>
+      <li>
+        <strong>Predator-prey oscillations</strong> emerge naturally from the interaction
+        coefficients
+      </li>
+      <li>
+        <strong>Competitive exclusion</strong> (Gause's principle) works — niche overlap drives
+        weaker competitors extinct
+      </li>
+      <li><strong>Speciation</strong> occurs via genome drift, producing evolutionary branching</li>
+      <li><strong>Temperature-based fitness modifiers</strong> create climate-adapted species</li>
+    </ul>
+
+    <h3>What is missing</h3>
+
+    <table>
+      <tr>
+        <th>Gap</th>
+        <th>Consequence</th>
+        <th>Player Impact</th>
+      </tr>
+      <tr>
+        <td><strong>No energy differentiation by biome type</strong></td>
+        <td>Desert and forest both support K=500. Mountain and ocean have K=0. No gradient.</td>
+        <td>
+          Terrain sculpting feels arbitrary — creating a forest does not measurably benefit the
+          ecosystem
+        </td>
+      </tr>
+      <tr>
+        <td><strong>No trophic energy budget</strong></td>
+        <td>
+          Herbivores and predators are not constrained by the energy their food source produces
+        </td>
+        <td>
+          Removing all plants should crash herbivores, but the causal chain is mediated only by
+          starvation checks, not energy flow
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Metabolism trait is unused</strong></td>
+        <td>
+          The genome includes a <code>metabolism</code> trait (index 4, range 0.1–2.0) but it has
+          <strong>no effect on the simulation</strong>
+        </td>
+        <td>
+          A trait visible in species cards that does nothing — undermines trust in the simulation
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Carrying capacity is flat</strong></td>
+        <td>All habitable biomes are identical from the simulation's perspective</td>
+        <td>
+          The 2D biome map and 3D terrain show visual diversity, but the simulation underneath
+          treats it as uniform
+        </td>
+      </tr>
+    </table>
+
+    <p class="ref">
+      The concept of <strong>bottom-up trophic control</strong> — where primary production
+      constrains all higher trophic levels — is one of ecology's foundational principles (Hairston,
+      Smith &amp; Slobodkin, 1960, "<a href="https://doi.org/10.1086/282171"
+        >Community Structure, Population Control, and Competition</a
+      >", <em>The American Naturalist</em>). Its absence from the current model is the most
+      significant gap.
+    </p>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="approaches">Candidate Approaches</h2>
+
+    <h3>Approach A: Pure Energy Flow Model</h3>
+
+    <p>
+      <strong>Replace Lotka-Volterra entirely</strong> with an energy-budget system. Each species
+      tracks energy intake, metabolic cost, and reproduction budget. Population change is determined
+      by energy surplus/deficit rather than by the L-V equation.
+    </p>
+
+    <h4>How it works</h4>
+    <ul>
+      <li>
+        Each biome receives <strong>solar irradiance</strong> (kJ/tick) based on biome type,
+        elevation, and latitude
+      </li>
+      <li>
+        <strong>Producers</strong> convert solar energy to biomass with efficiency &eta;<sub>p</sub>
+        (photosynthetic efficiency, ~1–5% in nature)
+      </li>
+      <li>
+        <strong>Herbivores</strong> consume producer biomass. Each individual needs
+        <code>metabolism &times; size<sup>0.75</sup></code> energy per tick (Kleiber's law).
+        Population grows if energy intake > metabolic cost + reproduction threshold
+      </li>
+      <li><strong>Predators</strong> consume herbivore biomass with similar energy accounting</li>
+      <li>
+        Carrying capacity is <em>emergent</em> — it is the population that exactly consumes the
+        energy available at each trophic level
+      </li>
+    </ul>
+
+    <h4>Strengths</h4>
+    <ul>
+      <li>
+        Most scientifically rigorous — energy conservation is a physical law, not a modelling
+        assumption
+      </li>
+      <li>
+        Trophic cascades emerge naturally — removing herbivores causes measurable producer
+        overgrowth
+      </li>
+      <li>
+        The <code>metabolism</code> trait becomes meaningful — high-metabolism species need more
+        energy but may reproduce faster
+      </li>
+    </ul>
+
+    <h4>Weaknesses</h4>
+    <ul>
+      <li>
+        <strong>Complete replacement of the population solver</strong> — all 13 existing tick tests
+        become invalid
+      </li>
+      <li>
+        Tuning difficulty is high — energy flow models are notoriously sensitive to parameter
+        choices (<a href="https://doi.org/10.1016/j.ecolmodel.2006.02.041"
+          >Jorgensen &amp; Fath, 2006</a
+        >)
+      </li>
+      <li>
+        Risk of "ecological death spirals" where slight parameter imbalances collapse entire food
+        webs
+      </li>
+      <li>Predator-prey oscillations require careful damping to avoid runaway boom-bust</li>
+    </ul>
+
+    <p class="ref">
+      Energy-budget models for ecosystems trace to Odum's "Energy Flow in Ecosystems" (1968). Modern
+      implementations include
+      <a href="https://doi.org/10.1111/ele.12757">Yodzis &amp; Innes (1992)</a>'s bioenergetic
+      consumer-resource model, widely used in theoretical ecology but rarely in games due to tuning
+      complexity.
+    </p>
+
+    <hr />
+
+    <h3>Approach B: Hybrid Lotka-Volterra + Energy-Derived Carrying Capacity</h3>
+
+    <p>
+      <strong>Keep the proven L-V population solver</strong> but replace the static K=500 with a
+      dynamic carrying capacity derived from trophic energy production. Energy constrains the
+      <em>ceiling</em>; the L-V dynamics determine how populations behave <em>under</em> that
+      ceiling.
+    </p>
+
+    <h4>How it works</h4>
+    <ul>
+      <li>
+        Each biome type produces a <strong>base energy value</strong> (productivity):
+        <ul>
+          <li>
+            Forest: 1000 &nbsp;|&nbsp; Grassland: 700 &nbsp;|&nbsp; Tundra: 300 &nbsp;|&nbsp;
+            Desert: 200 &nbsp;|&nbsp; Ocean/Mountain: 0
+          </li>
+        </ul>
+      </li>
+      <li>
+        <strong>Producer K</strong> = biome energy &times; moisture factor &times; temperature
+        factor
+      </li>
+      <li>
+        <strong>Herbivore K per biome</strong> = (total producer biomass in biome) &times; transfer
+        efficiency (~10%, following
+        <a href="https://doi.org/10.1073/pnas.0611609104">Lindeman's 10% rule</a>)
+      </li>
+      <li>
+        <strong>Predator K per biome</strong> = (total herbivore biomass in biome) &times; transfer
+        efficiency (~10%)
+      </li>
+      <li>
+        The <code>metabolism</code> trait modulates how efficiently a species converts available
+        energy to carrying capacity — high metabolism = higher K but higher maintenance cost (lower
+        fitness when food is scarce)
+      </li>
+      <li>The L-V solver runs exactly as today, but K is now dynamic and trophic-level-specific</li>
+    </ul>
+
+    <h4>Strengths</h4>
+    <ul>
+      <li>
+        <strong>Minimal regression risk</strong> — the population dynamics formula is unchanged;
+        only K changes
+      </li>
+      <li><strong>All existing tests remain valid</strong> with updated K values</li>
+      <li>
+        <strong>Immediately legible</strong> — forests support more life because they produce more
+        energy; deserts are harsher; the player's sculpting has clear consequences
+      </li>
+      <li>
+        Trophic cascades emerge from K dependencies — removing herbivores raises producer K (less
+        consumption) but crashes predator K
+      </li>
+      <li>
+        <strong>Metabolism trait becomes meaningful</strong> without rewriting the growth model
+      </li>
+    </ul>
+
+    <h4>Weaknesses</h4>
+    <ul>
+      <li>
+        Energy is not strictly conserved — K is <em>derived from</em> energy but populations aren't
+        energy-tracked
+      </li>
+      <li>
+        Less scientifically rigorous than Approach A — it is an approximation, not a
+        first-principles model
+      </li>
+      <li>
+        The "10% transfer rule" is a simplification (<a
+          href="https://doi.org/10.1046/j.1461-0248.2003.00458.x"
+          >Cebrian, 1999</a
+        >
+        showed transfer efficiencies range from 1–40% depending on ecosystem type)
+      </li>
+    </ul>
+
+    <hr />
+
+    <h3>Approach C: Metabolic Theory of Ecology (MTE)</h3>
+
+    <p>
+      <strong>Apply allometric scaling laws</strong> (West, Brown &amp; Enquist, 1997) to derive
+      population parameters from body size and temperature. Metabolic rate scales as
+      <code>mass<sup>0.75</sup> &times; e<sup>&minus;E/kT</sup></code
+      >, where E is activation energy and T is temperature in Kelvin.
+    </p>
+
+    <h4>How it works</h4>
+    <ul>
+      <li>
+        All population parameters (growth rate, carrying capacity, interaction strength) are
+        <em>derived</em> from the species' <code>size</code> trait and the biome's temperature using
+        MTE scaling laws
+      </li>
+      <li>
+        Large species have lower growth rates, lower carrying capacities, but higher per-capita
+        energy needs
+      </li>
+      <li>
+        Temperature directly affects metabolic rate — warmer biomes have faster population dynamics
+      </li>
+    </ul>
+
+    <h4>Strengths</h4>
+    <ul>
+      <li>
+        Highly principled — based on Nobel-adjacent theoretical biology (<a
+          href="https://doi.org/10.1126/science.276.5309.122"
+          >West et al., 1997</a
+        >)
+      </li>
+      <li>Automatically produces realistic body-size distributions and abundance patterns</li>
+      <li>Temperature effects are mechanistic, not parameterised</li>
+    </ul>
+
+    <h4>Weaknesses</h4>
+    <ul>
+      <li>
+        <strong>Complexity invisible to the player</strong> — allometric exponents (0.75, -0.25,
+        etc.) are not intuitive
+      </li>
+      <li>
+        Requires Boltzmann temperature scaling (e<sup>&minus;E/kT</sup>) — adds activation energy
+        constants the player cannot see or control
+      </li>
+      <li>
+        <strong>Over-engineered for an idle game</strong> — the scientific rigour adds
+        implementation and tuning cost without proportional gameplay benefit
+      </li>
+      <li>
+        The MTE is controversial in ecology —
+        <a href="https://doi.org/10.1111/j.1461-0248.2010.01436.x">Price et al. (2012)</a> showed
+        the 3/4 power law is not universal
+      </li>
+    </ul>
+
+    <hr />
+
+    <h3>Approach D: Agent-Based Energy Budgets</h3>
+
+    <p>
+      <strong>Give each individual organism its own energy budget.</strong> Organisms forage,
+      consume, metabolise, and reproduce as individuals. Population dynamics emerge from individual
+      decisions.
+    </p>
+
+    <h4>How it works</h4>
+    <ul>
+      <li>Each organism is an agent with: position, energy reserve, genome, age</li>
+      <li>
+        Per tick: organism moves, forages (gains energy), metabolises (loses energy), reproduces (if
+        energy > threshold), or dies (if energy &le; 0)
+      </li>
+      <li>
+        No Lotka-Volterra equation — population dynamics are emergent from millions of individual
+        energy transactions
+      </li>
+    </ul>
+
+    <h4>Strengths</h4>
+    <ul>
+      <li>Maximum emergence — complex behaviours arise from simple individual rules</li>
+      <li>
+        Natural connection to the 3D creature visualisation — each agent <em>is</em> a creature on
+        screen
+      </li>
+      <li>Enables within-species genetic variation (DDR-011)</li>
+    </ul>
+
+    <h4>Weaknesses</h4>
+    <ul>
+      <li>
+        <strong>~500x computational cost</strong> (DDR-011 estimate) — requires Web Worker or
+        WebAssembly
+      </li>
+      <li>
+        <strong>Complete rewrite</strong> of the population dynamics — no continuity with current
+        engine
+      </li>
+      <li>Extremely difficult to tune — emergent systems are unpredictable by definition</li>
+      <li>
+        Offline catch-up (a core idle-game requirement) becomes intractable — cannot fast-forward
+        millions of agents
+      </li>
+      <li>DDR-011 explicitly defers this to v0.3 or v0.4</li>
+    </ul>
+
+    <p class="ref">
+      Agent-based ecosystem models are well-studied. See
+      <a href="https://doi.org/10.1016/j.ecolmodel.2006.04.023">Grimm &amp; Railsback (2005)</a>,
+      <em>Individual-based Modeling and Ecology</em>. The computational and tuning challenges are
+      well-documented in
+      <a href="https://doi.org/10.1016/j.jtbi.2005.01.014">DeAngelis &amp; Mooij (2005)</a>.
+    </p>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="dvf">DVF Assessment</h2>
+
+    <p>Each approach is scored 1.0–5.0 on three dimensions:</p>
+    <ul>
+      <li>
+        <strong>Desirability:</strong> Does it solve the right problem? Does it improve the player
+        experience? Does it create emergent depth?
+      </li>
+      <li>
+        <strong>Viability:</strong> Can it be maintained and tuned? Does it scale? Does it survive
+        contact with real gameplay?
+      </li>
+      <li>
+        <strong>Feasibility:</strong> Can it be built now? What is the implementation cost? What is
+        the regression risk?
+      </li>
+    </ul>
+
+    <h3>Scoring Matrix</h3>
+
+    <table>
+      <tr>
+        <th>Criterion</th>
+        <th>A: Pure Energy</th>
+        <th>B: Hybrid L-V</th>
+        <th>C: MTE</th>
+        <th>D: Agent-Based</th>
+      </tr>
+      <tr>
+        <td><strong>D1.</strong> Trophic energy legibility</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-high">4.0</td>
+        <td class="score score-mid">3.0</td>
+        <td class="score score-high">4.5</td>
+      </tr>
+      <tr>
+        <td><strong>D2.</strong> Terrain sculpting payoff</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-mid">3.5</td>
+        <td class="score score-high">4.0</td>
+      </tr>
+      <tr>
+        <td><strong>D3.</strong> Emergent trophic cascades</td>
+        <td class="score score-high">5.0</td>
+        <td class="score score-high">4.0</td>
+        <td class="score score-mid">3.5</td>
+        <td class="score score-high">5.0</td>
+      </tr>
+      <tr>
+        <td><strong>D4.</strong> Metabolism trait activation</td>
+        <td class="score score-high">5.0</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-high">5.0</td>
+        <td class="score score-high">5.0</td>
+      </tr>
+      <tr>
+        <td style="background: #e8eef4"><strong>Desirability Average</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>4.8</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>4.3</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>3.8</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>4.6</strong></td>
+      </tr>
+      <tr>
+        <td colspan="5" style="height: 4pt; border: none"></td>
+      </tr>
+      <tr>
+        <td><strong>V1.</strong> Tuning stability</td>
+        <td class="score score-low">2.0</td>
+        <td class="score score-high">4.0</td>
+        <td class="score score-mid">3.0</td>
+        <td class="score score-low">1.5</td>
+      </tr>
+      <tr>
+        <td><strong>V2.</strong> Offline catch-up compatibility</td>
+        <td class="score score-mid">3.5</td>
+        <td class="score score-high">5.0</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-low">1.0</td>
+      </tr>
+      <tr>
+        <td><strong>V3.</strong> Long-term extensibility</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-high">4.0</td>
+        <td class="score score-mid">3.5</td>
+        <td class="score score-high">5.0</td>
+      </tr>
+      <tr>
+        <td><strong>V4.</strong> Simulation pacing control (DDR-005)</td>
+        <td class="score score-mid">3.0</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-mid">3.5</td>
+        <td class="score score-low">2.0</td>
+      </tr>
+      <tr>
+        <td style="background: #e8eef4"><strong>Viability Average</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>3.3</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>4.4</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>3.6</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>2.4</strong></td>
+      </tr>
+      <tr>
+        <td colspan="5" style="height: 4pt; border: none"></td>
+      </tr>
+      <tr>
+        <td><strong>F1.</strong> Implementation effort</td>
+        <td class="score score-low">2.0</td>
+        <td class="score score-high">4.0</td>
+        <td class="score score-mid">3.0</td>
+        <td class="score score-low">1.0</td>
+      </tr>
+      <tr>
+        <td><strong>F2.</strong> Regression risk</td>
+        <td class="score score-low">1.5</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-mid">3.0</td>
+        <td class="score score-low">1.0</td>
+      </tr>
+      <tr>
+        <td><strong>F3.</strong> Test coverage preservation</td>
+        <td class="score score-low">1.5</td>
+        <td class="score score-high">4.5</td>
+        <td class="score score-mid">3.0</td>
+        <td class="score score-low">1.0</td>
+      </tr>
+      <tr>
+        <td><strong>F4.</strong> Engine/UX separation</td>
+        <td class="score score-high">5.0</td>
+        <td class="score score-high">5.0</td>
+        <td class="score score-high">5.0</td>
+        <td class="score score-mid">3.5</td>
+      </tr>
+      <tr>
+        <td style="background: #e8eef4"><strong>Feasibility Average</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>2.5</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>4.5</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>3.5</strong></td>
+        <td class="score" style="background: #e8eef4"><strong>1.6</strong></td>
+      </tr>
+      <tr>
+        <td colspan="5" style="height: 4pt; border: none"></td>
+      </tr>
+      <tr style="font-weight: 700">
+        <td style="background: #0d2137; color: #fff">COMPOSITE SCORE</td>
+        <td class="score" style="background: #0d2137; color: #fff">3.5</td>
+        <td class="score" style="background: #0d2137; color: #e8c840">4.4</td>
+        <td class="score" style="background: #0d2137; color: #fff">3.6</td>
+        <td class="score" style="background: #0d2137; color: #fff">2.9</td>
+      </tr>
+    </table>
+
+    <h3>2&times;2 Strategic Matrix</h3>
+
+    <p>
+      Axes: <strong>X = Feasibility</strong> (ease of implementation),
+      <strong>Y = Desirability</strong> (player value). Bubble <strong>colour</strong> = Viability
+      (green = high, amber = medium, red = low). Bubble <strong>size</strong> = Composite score.
+    </p>
+
+    <div class="matrix-container">
+      <svg class="matrix-svg" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg">
+        <!-- Grid -->
+        <rect x="80" y="20" width="400" height="340" fill="#f7f9fb" stroke="#ccc" />
+        <line
+          x1="280"
+          y1="20"
+          x2="280"
+          y2="360"
+          stroke="#ddd"
+          stroke-width="1"
+          stroke-dasharray="6,4"
+        />
+        <line
+          x1="80"
+          y1="190"
+          x2="480"
+          y2="190"
+          stroke="#ddd"
+          stroke-width="1"
+          stroke-dasharray="6,4"
+        />
+
+        <!-- Axis labels -->
+        <text x="280" y="385" text-anchor="middle" font-size="10" fill="#555" font-weight="600">
+          FEASIBILITY &rarr;
+        </text>
+        <text
+          x="30"
+          y="190"
+          text-anchor="middle"
+          font-size="10"
+          fill="#555"
+          font-weight="600"
+          transform="rotate(-90 30 190)"
+        >
+          DESIRABILITY &rarr;
+        </text>
+
+        <!-- Quadrant labels -->
+        <text x="175" y="45" text-anchor="middle" font-size="8" fill="#aaa">
+          HIGH DESIRE / LOW FEASIBILITY
+        </text>
+        <text x="385" y="45" text-anchor="middle" font-size="8" fill="#aaa">
+          HIGH DESIRE / HIGH FEASIBILITY
+        </text>
+        <text x="175" y="345" text-anchor="middle" font-size="8" fill="#aaa">
+          LOW DESIRE / LOW FEASIBILITY
+        </text>
+        <text x="385" y="345" text-anchor="middle" font-size="8" fill="#aaa">
+          LOW DESIRE / HIGH FEASIBILITY
+        </text>
+
+        <!-- Scale ticks -->
+        <text x="80" y="375" font-size="8" fill="#999">1.0</text>
+        <text x="270" y="375" font-size="8" fill="#999">3.0</text>
+        <text x="470" y="375" font-size="8" fill="#999">5.0</text>
+        <text x="65" y="360" font-size="8" fill="#999" text-anchor="end">1.0</text>
+        <text x="65" y="193" font-size="8" fill="#999" text-anchor="end">3.0</text>
+        <text x="65" y="27" font-size="8" fill="#999" text-anchor="end">5.0</text>
+
+        <!-- Bubble A: Pure Energy — Feasibility 2.5, Desirability 4.8, Viability 3.3 (amber), Composite 3.5 -->
+        <circle
+          cx="180"
+          cy="47"
+          r="32"
+          fill="#e8a820"
+          fill-opacity="0.3"
+          stroke="#e8a820"
+          stroke-width="2"
+        />
+        <text x="180" y="51" text-anchor="middle" font-size="9" font-weight="700" fill="#7a5500">
+          A
+        </text>
+
+        <!-- Bubble B: Hybrid — Feasibility 4.5, Desirability 4.3, Viability 4.4 (green), Composite 4.4 -->
+        <circle
+          cx="380"
+          cy="72"
+          r="40"
+          fill="#1a7a3a"
+          fill-opacity="0.25"
+          stroke="#1a7a3a"
+          stroke-width="2.5"
+        />
+        <text x="380" y="76" text-anchor="middle" font-size="10" font-weight="700" fill="#0d5020">
+          B
+        </text>
+
+        <!-- Bubble C: MTE — Feasibility 3.5, Desirability 3.8, Viability 3.6 (amber), Composite 3.6 -->
+        <circle
+          cx="300"
+          cy="122"
+          r="33"
+          fill="#e8a820"
+          fill-opacity="0.3"
+          stroke="#e8a820"
+          stroke-width="2"
+        />
+        <text x="300" y="126" text-anchor="middle" font-size="9" font-weight="700" fill="#7a5500">
+          C
+        </text>
+
+        <!-- Bubble D: Agent — Feasibility 1.6, Desirability 4.6, Viability 2.4 (red), Composite 2.9 -->
+        <circle
+          cx="128"
+          cy="57"
+          r="26"
+          fill="#c0392b"
+          fill-opacity="0.25"
+          stroke="#c0392b"
+          stroke-width="2"
+        />
+        <text x="128" y="61" text-anchor="middle" font-size="9" font-weight="700" fill="#8b1a1a">
+          D
+        </text>
+
+        <!-- Legend -->
+        <rect x="85" y="260" width="170" height="90" fill="#fff" stroke="#ccc" rx="4" />
+        <circle cx="100" cy="278" r="6" fill="#1a7a3a" fill-opacity="0.4" stroke="#1a7a3a" />
+        <text x="112" y="282" font-size="8" fill="#333">Viability: High (&ge;4.0)</text>
+        <circle cx="100" cy="298" r="6" fill="#e8a820" fill-opacity="0.4" stroke="#e8a820" />
+        <text x="112" y="302" font-size="8" fill="#333">Viability: Medium (3.0–3.9)</text>
+        <circle cx="100" cy="318" r="6" fill="#c0392b" fill-opacity="0.4" stroke="#c0392b" />
+        <text x="112" y="322" font-size="8" fill="#333">Viability: Low (&lt;3.0)</text>
+        <text x="100" y="340" font-size="8" fill="#777">Size = Composite Score</text>
+      </svg>
+    </div>
+
+    <p>
+      <strong>Interpretation:</strong> Approach B occupies the ideal top-right quadrant — high
+      desirability <em>and</em> high feasibility — with the largest bubble (highest composite score)
+      and green colouring (highest viability). Approach A is desirable but infeasible. Approach D is
+      desirable but both infeasible and unviable. Approach C sits in the middle with no clear
+      advantage.
+    </p>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="deep">Deep-Dive: Recommended Approach (B — Hybrid L-V + Energy)</h2>
+
+    <h3>Design Overview</h3>
+
+    <p>
+      The hybrid approach introduces a <strong>biome energy production layer</strong> that feeds
+      into the existing Lotka-Volterra solver by replacing the static carrying capacity K with a
+      <strong>trophic-level-specific, dynamically computed K</strong>.
+    </p>
+
+    <div class="callout">
+      <strong>Core principle:</strong> Energy flows downward through trophic levels. Each level's
+      carrying capacity is constrained by the energy available from the level below it (or from
+      solar input for producers). The Lotka-Volterra solver determines how populations behave
+      <em>within</em> these energy-derived ceilings.
+    </div>
+
+    <h3>Energy Production by Biome Type</h3>
+
+    <p>
+      Each biome type produces a base energy value representing
+      <strong>net primary productivity</strong> (NPP) — the amount of solar energy converted to
+      plant biomass, which is the foundational energy input for the entire food web.
+    </p>
+
+    <table>
+      <tr>
+        <th>Biome Type</th>
+        <th>Base Energy</th>
+        <th>Real-World NPP Analogue</th>
+        <th>Rationale</th>
+      </tr>
+      <tr>
+        <td>Forest</td>
+        <td>1000</td>
+        <td>Tropical/temperate forest: 1000–2000 g C/m&sup2;/yr</td>
+        <td>Highest moisture, densest vegetation</td>
+      </tr>
+      <tr>
+        <td>Grassland</td>
+        <td>700</td>
+        <td>Temperate grassland: 500–1000 g C/m&sup2;/yr</td>
+        <td>Moderate moisture, open canopy</td>
+      </tr>
+      <tr>
+        <td>Tundra</td>
+        <td>300</td>
+        <td>Arctic tundra: 100–400 g C/m&sup2;/yr</td>
+        <td>Cold-limited growth</td>
+      </tr>
+      <tr>
+        <td>Desert</td>
+        <td>200</td>
+        <td>Hot desert: 50–300 g C/m&sup2;/yr</td>
+        <td>Moisture-limited growth</td>
+      </tr>
+      <tr>
+        <td>Ocean</td>
+        <td>0</td>
+        <td>N/A — uninhabitable</td>
+        <td>No land biota</td>
+      </tr>
+      <tr>
+        <td>Mountain</td>
+        <td>0</td>
+        <td>N/A — uninhabitable</td>
+        <td>Too extreme</td>
+      </tr>
+    </table>
+
+    <p class="ref">
+      NPP values based on
+      <a href="https://doi.org/10.1038/s41559-019-0809-2">Bar-On, Phillips &amp; Milo (2018)</a>,
+      "The biomass distribution on Earth", <em>PNAS</em>, and
+      <a href="https://doi.org/10.1038/44368">Field et al. (1998)</a>, "Primary Production of the
+      Biosphere", <em>Science</em>.
+    </p>
+
+    <h3>Carrying Capacity Derivation</h3>
+
+    <h4>Producers</h4>
+
+    <pre
+      style="
+        background: #f0f4f8;
+        padding: 10pt;
+        font-size: 9.5pt;
+        border-radius: 4px;
+        overflow-x: auto;
+      "
+    >
+K_producer(biome) = baseEnergy[biomeType]
+                    × moistureFactor(biome.moisture)
+                    × temperatureFactor(temperature)
+
+moistureFactor(m)   = 0.5 + m          // range [0.5, 1.5]
+temperatureFactor(t) = max(0.1, 1 - |t - 20| × 0.015)  // peaks at 20°C
+</pre
+    >
+
+    <p>
+      This gives K_producer ranging from ~30 (cold desert) to ~1500 (warm wet forest) — a
+      <strong>50x range</strong> replacing the flat 500.
+    </p>
+
+    <h4>Herbivores</h4>
+
+    <pre
+      style="
+        background: #f0f4f8;
+        padding: 10pt;
+        font-size: 9.5pt;
+        border-radius: 4px;
+        overflow-x: auto;
+      "
+    >
+producerBiomass(biome) = Σ population of all producers in biome
+
+K_herbivore(biome) = producerBiomass(biome) × TRANSFER_EFFICIENCY
+                     × metabolismModifier(species)
+
+TRANSFER_EFFICIENCY  = 0.10   // Lindeman's 10% rule
+metabolismModifier(s) = 1.0 / (0.5 + traits.metabolism × 0.5)
+  // High metabolism → lower K (needs more energy per individual)
+  // Low metabolism  → higher K (more efficient, but slower growth)
+</pre
+    >
+
+    <h4>Predators</h4>
+
+    <pre
+      style="
+        background: #f0f4f8;
+        padding: 10pt;
+        font-size: 9.5pt;
+        border-radius: 4px;
+        overflow-x: auto;
+      "
+    >
+herbivoreBiomass(biome) = Σ population of all herbivores in biome
+
+K_predator(biome) = herbivoreBiomass(biome) × TRANSFER_EFFICIENCY
+                    × metabolismModifier(species)
+</pre
+    >
+
+    <h3>Metabolism Trait Activation</h3>
+
+    <p>
+      The <code>metabolism</code> trait (currently unused, genome index 4, range 0.1–2.0) gains a
+      <strong>dual role</strong>:
+    </p>
+
+    <table>
+      <tr>
+        <th>Effect</th>
+        <th>Mechanism</th>
+        <th>Trade-off</th>
+      </tr>
+      <tr>
+        <td><strong>Growth rate boost</strong></td>
+        <td>
+          r = BASE_GROWTH_RATE &times; (0.5 + reproductionRate) &times;
+          <strong>(0.8 + metabolism &times; 0.2)</strong> &times; fitness
+        </td>
+        <td>Faster growth when food is available</td>
+      </tr>
+      <tr>
+        <td><strong>Lower carrying capacity</strong></td>
+        <td>K adjusted by <code>1 / (0.5 + metabolism &times; 0.5)</code></td>
+        <td>Each individual consumes more energy, so fewer individuals are supported</td>
+      </tr>
+    </table>
+
+    <p>
+      This creates a <strong>classic r-K trade-off</strong> (<a
+        href="https://doi.org/10.1086/282507"
+        >MacArthur &amp; Wilson, 1967</a
+      >) — high-metabolism species are "r-strategists" (fast growth, lower equilibrium) while
+      low-metabolism species are "K-strategists" (slow growth, higher equilibrium). The player can
+      observe this in the species cards.
+    </p>
+
+    <h3>Integration with Existing Engine</h3>
+
+    <div class="callout">
+      <strong>Key architectural insight:</strong> The change is confined to how K is computed. The
+      Lotka-Volterra solver, interaction matrix, speciation system, genome mutation, and all other
+      engine modules remain unchanged.
+    </div>
+
+    <p>
+      <strong>New module:</strong> <code>src/engine/energy.ts</code> — pure functions for biome
+      energy production and trophic K derivation.
+    </p>
+
+    <p>
+      <strong>Modified module:</strong> <code>src/engine/tick.ts</code> — replace the static K
+      lookup with a call to the energy module's K derivation.
+    </p>
+
+    <p>
+      <strong>Modified type:</strong> <code>Biome</code> gains an optional
+      <code>energyProduction</code> field (derived, not stored in save — no migration needed).
+    </p>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="dissent">Obligation to Dissent</h2>
+
+    <h3>Computational Ecologist — partial dissent</h3>
+
+    <p>
+      "Approach B is the pragmatic choice, but I want to flag that
+      <strong>the 10% transfer efficiency is a gross simplification</strong>. In real ecosystems,
+      transfer efficiency varies from 1% (large warm-blooded predators) to 40% (cold-blooded aquatic
+      consumers). Using a flat 10% will produce unrealistic predator:prey ratios for species with
+      extreme trait values.
+    </p>
+
+    <p>
+      I would recommend making transfer efficiency a function of the <code>metabolism</code> and
+      <code>size</code> traits — larger, higher-metabolism species should have lower transfer
+      efficiency. This preserves the simplicity of Approach B while adding ecological plausibility."
+    </p>
+
+    <p>
+      <strong>Panel response:</strong> Accepted. The recommended design includes
+      metabolism-modulated transfer efficiency.
+    </p>
+
+    <h3>Game Systems Designer — conditional support</h3>
+
+    <p>
+      "I support Approach B on the condition that
+      <strong>the energy values are visible to the player</strong>. If the player can't see why a
+      forest biome supports more herbivores than a desert, the system is doing computation without
+      creating gameplay. The species cards, biome tooltips, and UI must expose the energy chain.
+    </p>
+
+    <p>
+      I also want to caution against making the energy system too punishing. In the current model, a
+      desert biome still supports K=500 — players who like deserts won't enjoy watching their
+      ecosystems die. The minimum K for habitable biomes should never be zero; even the harshest
+      desert supports some life."
+    </p>
+
+    <p>
+      <strong>Panel response:</strong> Agreed. UI exposure is out of scope for the engine brief (it
+      belongs in the UX layer) but the engine must produce data that the UI can display. The minimum
+      K concern is addressed by the <code>moistureFactor</code> floor of 0.5 — even a bone-dry
+      desert gets K = 200 &times; 0.5 = 100, not zero.
+    </p>
+
+    <h3>Performance Engineer — full support</h3>
+
+    <p>
+      "Approach B adds minimal computational overhead. The K derivation is O(biomes &times; species)
+      — the same as the existing biome population lookup. The Lotka-Volterra solver is unchanged.
+      Offline catch-up and time-jump performance are preserved. I have no concerns."
+    </p>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="roadmap">Implementation Roadmap</h2>
+
+    <p>
+      The implementation is split into two sub-briefs to keep commits focused and allow incremental
+      testing.
+    </p>
+
+    <h3>Phase 1: Biome Energy Production + Producer K (BRF-013)</h3>
+
+    <table>
+      <tr>
+        <th>Item</th>
+        <th>Detail</th>
+      </tr>
+      <tr>
+        <td><strong>Scope</strong></td>
+        <td>
+          New <code>src/engine/energy.ts</code> module. Biome energy production by type. Producer
+          carrying capacity derived from energy. Metabolism trait affects producer growth rate.
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Files</strong></td>
+        <td>
+          <code>energy.ts</code> (new), <code>energy.test.ts</code> (new),
+          <code>tick.ts</code> (modify K lookup for producers), <code>index.ts</code> (export)
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Tests</strong></td>
+        <td>
+          ~8-10 new tests: energy production per biome type, moisture factor, temperature factor,
+          producer K calculation, metabolism effect on growth rate
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Risk</strong></td>
+        <td>LOW — additive change, existing population dynamics unaffected for consumers</td>
+      </tr>
+      <tr>
+        <td><strong>Dependency</strong></td>
+        <td>None — can begin immediately</td>
+      </tr>
+    </table>
+
+    <h3>Phase 2: Trophic Transfer + Consumer K (BRF-014)</h3>
+
+    <table>
+      <tr>
+        <th>Item</th>
+        <th>Detail</th>
+      </tr>
+      <tr>
+        <td><strong>Scope</strong></td>
+        <td>
+          Herbivore K derived from producer biomass &times; transfer efficiency. Predator K derived
+          from herbivore biomass. Metabolism trait modulates transfer efficiency and consumer K.
+          Starvation mechanics updated.
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Files</strong></td>
+        <td>
+          <code>energy.ts</code> (extend), <code>energy.test.ts</code> (extend),
+          <code>tick.ts</code> (modify K lookup for consumers)
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Tests</strong></td>
+        <td>
+          ~8-10 new tests: herbivore K from producer biomass, predator K from herbivore biomass,
+          transfer efficiency, metabolism modifier, trophic cascade scenarios
+        </td>
+      </tr>
+      <tr>
+        <td><strong>Risk</strong></td>
+        <td>MEDIUM — consumer K becomes dynamic and population-dependent, may need tuning</td>
+      </tr>
+      <tr>
+        <td><strong>Dependency</strong></td>
+        <td>Requires Phase 1</td>
+      </tr>
+    </table>
+
+    <h3>Separation from UX Migration</h3>
+
+    <div class="callout">
+      <strong>All energy system work is pure engine code</strong> (<code>src/engine/</code>). It has
+      zero dependency on Three.js, Babylon.js, or any rendering code. The DDR-012 migration
+      checkpoint (Babylon.js) can proceed independently — the energy system changes WorldState data,
+      and the renderer consumes WorldState data. These are orthogonal concerns connected only by the
+      WorldState contract.
+    </div>
+
+    <!-- ================================================================ -->
+    <div class="page-break"></div>
+    <h2 id="glossary">Appendix: Glossary</h2>
+
+    <table class="glossary">
+      <tr>
+        <th>Term</th>
+        <th>Definition</th>
+      </tr>
+      <tr>
+        <td>Agent-Based Model (ABM)</td>
+        <td>
+          A simulation where individual entities (agents) follow simple rules, and population-level
+          behaviour emerges from their interactions. Computationally expensive but maximally
+          emergent.
+        </td>
+      </tr>
+      <tr>
+        <td>Allometric Scaling</td>
+        <td>
+          Mathematical relationships between body size and biological parameters (e.g., metabolic
+          rate scales with mass to the 0.75 power). Foundation of the Metabolic Theory of Ecology.
+        </td>
+      </tr>
+      <tr>
+        <td>Bioenergetic Model</td>
+        <td>
+          A model that tracks energy intake, metabolic cost, and energy allocation to growth and
+          reproduction for each organism or species.
+        </td>
+      </tr>
+      <tr>
+        <td>Carrying Capacity (K)</td>
+        <td>
+          The maximum population a biome can sustain. In the current model, K=500 for all habitable
+          biomes. In the proposed model, K is derived from trophic energy availability.
+        </td>
+      </tr>
+      <tr>
+        <td>DVF Assessment</td>
+        <td>
+          Desirability-Viability-Feasibility framework for evaluating options. Desirability = value
+          to users, Viability = sustainability and maintainability, Feasibility = implementation
+          cost and risk.
+        </td>
+      </tr>
+      <tr>
+        <td>Euler Integration</td>
+        <td>
+          A simple numerical method for solving differential equations by stepping forward in small
+          increments. Used in the tick loop to update populations.
+        </td>
+      </tr>
+      <tr>
+        <td>Kleiber's Law</td>
+        <td>
+          Empirical observation that metabolic rate scales with body mass to the 3/4 power
+          (mass<sup>0.75</sup>). Used in the MTE approach.
+        </td>
+      </tr>
+      <tr>
+        <td>Lindeman's 10% Rule</td>
+        <td>
+          Ecological principle that approximately 10% of energy is transferred from one trophic
+          level to the next. A simplification — real values range from 1–40%.
+        </td>
+      </tr>
+      <tr>
+        <td>Lotka-Volterra Equations</td>
+        <td>
+          A system of differential equations modelling predator-prey and competitive interactions.
+          The foundation of the current Radiate simulation engine.
+        </td>
+      </tr>
+      <tr>
+        <td>Metabolic Theory of Ecology (MTE)</td>
+        <td>
+          A framework that uses metabolic rate as the fundamental biological rate to predict
+          ecological patterns (population density, growth rate, etc.) from body size and
+          temperature.
+        </td>
+      </tr>
+      <tr>
+        <td>Net Primary Productivity (NPP)</td>
+        <td>
+          The rate at which an ecosystem accumulates plant biomass. Measured in grams of carbon per
+          square metre per year. Varies enormously by biome type.
+        </td>
+      </tr>
+      <tr>
+        <td>r-K Trade-off</td>
+        <td>
+          Ecological strategy spectrum: r-strategists reproduce quickly in unstable environments;
+          K-strategists reproduce slowly but dominate in stable, resource-limited environments.
+        </td>
+      </tr>
+      <tr>
+        <td>Trophic Cascade</td>
+        <td>
+          An ecological phenomenon where changes at one trophic level propagate through the food
+          web. Example: removing predators causes herbivore overpopulation, which depletes
+          producers.
+        </td>
+      </tr>
+      <tr>
+        <td>Trophic Level</td>
+        <td>
+          A species' position in the food chain. Producers (level 1) convert energy from sunlight.
+          Herbivores (level 2) eat producers. Predators (level 3) eat herbivores.
+        </td>
+      </tr>
+      <tr>
+        <td>Transfer Efficiency</td>
+        <td>
+          The fraction of energy from one trophic level that is converted to biomass at the next
+          level. Typically ~10% but varies by ecosystem and species traits.
+        </td>
+      </tr>
+      <tr>
+        <td>WorldState</td>
+        <td>
+          The central data contract in Radiate's engine. Contains all simulation state: biomes,
+          species, populations, events, RNG state. Consumed by both the engine and the renderer.
+        </td>
+      </tr>
+    </table>
+
+    <!-- ================================================================ -->
+    <h2 id="refs">Appendix: References</h2>
+
+    <table>
+      <tr>
+        <th>#</th>
+        <th>Reference</th>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>
+          Bar-On, Y.M., Phillips, R. &amp; Milo, R. (2018). The biomass distribution on Earth.
+          <em>PNAS</em>, 115(25), 6506–6511.
+          <a href="https://doi.org/10.1073/pnas.1711842115">doi:10.1073/pnas.1711842115</a>
+        </td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>
+          Cebrian, J. (1999). Patterns in the fate of production in plant communities.
+          <em>The American Naturalist</em>, 154(4), 449–468.
+          <a href="https://doi.org/10.1086/303244">doi:10.1086/303244</a>
+        </td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>
+          DeAngelis, D.L. &amp; Mooij, W.M. (2005). Individual-based modelling of ecological and
+          evolutionary processes. <em>Annual Review of Ecology, Evolution, and Systematics</em>, 36,
+          147–168.
+          <a href="https://doi.org/10.1146/annurev.ecolsys.36.102003.152644"
+            >doi:10.1146/annurev.ecolsys.36.102003.152644</a
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>
+          Field, C.B. et al. (1998). Primary Production of the Biosphere: Integrating Terrestrial
+          and Oceanic Components. <em>Science</em>, 281(5374), 237–240.
+          <a href="https://doi.org/10.1126/science.281.5374.237"
+            >doi:10.1126/science.281.5374.237</a
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>
+          Grimm, V. &amp; Railsback, S.F. (2005). <em>Individual-based Modeling and Ecology</em>.
+          Princeton University Press.
+        </td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>
+          Hairston, N.G., Smith, F.E. &amp; Slobodkin, L.B. (1960). Community Structure, Population
+          Control, and Competition. <em>The American Naturalist</em>, 94(879), 421–425.
+          <a href="https://doi.org/10.1086/282171">doi:10.1086/282171</a>
+        </td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>
+          Jorgensen, S.E. &amp; Fath, B.D. (2006). Examination of ecological networks.
+          <em>Ecological Modelling</em>, 196(3-4), 283–288.
+          <a href="https://doi.org/10.1016/j.ecolmodel.2006.02.041"
+            >doi:10.1016/j.ecolmodel.2006.02.041</a
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>
+          Lindeman, R.L. (1942). The Trophic-Dynamic Aspect of Ecology. <em>Ecology</em>, 23(4),
+          399–417. <a href="https://doi.org/10.2307/1930126">doi:10.2307/1930126</a>
+        </td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>Lotka, A.J. (1925). <em>Elements of Physical Biology</em>. Williams &amp; Wilkins.</td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>
+          MacArthur, R.H. &amp; Wilson, E.O. (1967). <em>The Theory of Island Biogeography</em>.
+          Princeton University Press.
+          <a href="https://doi.org/10.1515/9781400881376">doi:10.1515/9781400881376</a>
+        </td>
+      </tr>
+      <tr>
+        <td>11</td>
+        <td>
+          Price, C.A. et al. (2012). Testing the metabolic theory of ecology.
+          <em>Ecology Letters</em>, 15(12), 1465–1474.
+          <a href="https://doi.org/10.1111/j.1461-0248.2012.01860.x"
+            >doi:10.1111/j.1461-0248.2012.01860.x</a
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>12</td>
+        <td>
+          Volterra, V. (1926). Fluctuations in the Abundance of a Species considered Mathematically.
+          <em>Nature</em>, 118, 558–560.
+          <a href="https://doi.org/10.1038/118558a0">doi:10.1038/118558a0</a>
+        </td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td>
+          West, G.B., Brown, J.H. &amp; Enquist, B.J. (1997). A General Model for the Origin of
+          Allometric Scaling Laws in Biology. <em>Science</em>, 276(5309), 122–126.
+          <a href="https://doi.org/10.1126/science.276.5309.122"
+            >doi:10.1126/science.276.5309.122</a
+          >
+        </td>
+      </tr>
+      <tr>
+        <td>14</td>
+        <td>
+          Yodzis, P. &amp; Innes, S. (1992). Body Size and Consumer-Resource Dynamics.
+          <em>The American Naturalist</em>, 139(6), 1151–1175.
+          <a href="https://doi.org/10.1086/285380">doi:10.1086/285380</a>
+        </td>
+      </tr>
+    </table>
+
+    <div class="footer">
+      Energy System Architecture — Joint Consultancy Report &nbsp;|&nbsp; Radiate &nbsp;|&nbsp;
+      March 2026 &nbsp;|&nbsp; CONFIDENTIAL
+    </div>
+  </body>
+</html>
