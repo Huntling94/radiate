@@ -17,6 +17,7 @@
 | DDR-006 | Species invasion UX | OPEN | How player controls biosecurity when random invasions toggled on. Options: simple toggle, quarantine preview, trait-based filters. | Before v0.4 |
 | DDR-007 | Epoch prestige mechanics | OPEN | What persists between worlds. Options: tools only, tools + species museum, tools + unlocked trait archetypes. | Before v0.4 |
 | DDR-008 | Co-evolution modelling | OPEN | Symbiosis types to implement first. Options: parasitism (simplest), pollination (most visual), defer entirely. Core pred-prey must be stable first. | When v0.2 sim stable |
+| DDR-009 | Explicit geographic features layer | OPEN | Mountain ranges, volcanoes, rivers span multiple biomes. Options: (A) emergent from per-biome elevation/moisture (current v0.1 approach), (B) explicit `GeographicFeature` objects with named features spanning biome IDs. Option B enables narrative ("eruption at Mt. Pyroclast") and terrain sculpting. Option A is sufficient while there are no events or terrain tools. | Before v0.3 (terrain sculpting) |
 
 ---
 
