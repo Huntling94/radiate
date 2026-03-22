@@ -139,3 +139,4 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 | F-009 | Species cards / bestiary | v0.2 | Complete |
 | F-010 | Extinct species registry | v0.2 | Complete |
 | F-011 | Phylogenetic tree | v0.2 | Complete |
+| F-012 | 3D terrain with orbital camera (Phase 1) | v0.2 | Complete |

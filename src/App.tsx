@@ -1,18 +1,18 @@
 import { useState } from 'react';
 import { useSimulation, formatElapsed } from './components/useSimulation.ts';
 import type { TickSpeed } from './components/useSimulation.ts';
-import { BiomeMap } from './components/BiomeMap.tsx';
 import { PopulationChart } from './components/PopulationChart.tsx';
 import { SpeciesList } from './components/SpeciesList.tsx';
 import { SpeciesCard } from './components/SpeciesCard.tsx';
 import { TemperatureControl } from './components/TemperatureControl.tsx';
 import { EventLog } from './components/EventLog.tsx';
 import { PhylogeneticTree } from './components/PhylogeneticTree.tsx';
+import { World3D } from './world3d/World3D.tsx';
 import type { Species } from './engine/index.ts';
 
-type BottomTab = 'events' | 'chart' | 'tree';
+type PanelTab = 'events' | 'chart' | 'tree';
 
-const BOTTOM_TABS: { key: BottomTab; label: string }[] = [
+const PANEL_TABS: { key: PanelTab; label: string }[] = [
   { key: 'events', label: 'Events' },
   { key: 'chart', label: 'Chart' },
   { key: 'tree', label: 'Tree' },
@@ -36,7 +36,8 @@ export function App() {
   } = useSimulation();
 
   const [selectedSpeciesId, setSelectedSpeciesId] = useState<string | null>(null);
-  const [bottomTab, setBottomTab] = useState<BottomTab>('events');
+  const [panelTab, setPanelTab] = useState<PanelTab>('events');
+  const [showDashboard, setShowDashboard] = useState(true);
 
   // Auto-clear: if the selected ID no longer exists anywhere, treat as no selection
   const resolvedSelectedId =
@@ -58,10 +59,13 @@ export function App() {
   const speciesIds = worldState.species.map((s) => s.id);
 
   return (
-    <div className="flex h-screen flex-col bg-neutral-950 text-neutral-100">
+    <div className="relative h-screen w-screen overflow-hidden bg-neutral-950 text-neutral-100">
+      {/* 3D world — full screen */}
+      <World3D worldState={worldState} />
+
       {/* Welcome back banner */}
       {welcomeMessage ? (
-        <div className="flex items-center justify-between bg-emerald-950/60 px-4 py-2 text-sm text-emerald-300">
+        <div className="absolute top-0 right-0 left-0 z-20 flex items-center justify-between bg-emerald-950/80 px-4 py-2 text-sm text-emerald-300 backdrop-blur-sm">
           <span>{welcomeMessage}</span>
           <button
             onClick={dismissWelcome}
@@ -72,8 +76,8 @@ export function App() {
         </div>
       ) : null}
 
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-neutral-800/50 px-5 py-2">
+      {/* Header — top overlay */}
+      <header className="absolute top-0 right-0 left-0 z-10 flex items-center justify-between border-b border-neutral-800/30 bg-neutral-950/70 px-5 py-2 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold tracking-tight text-emerald-400">Radiate</h1>
           <span className="text-[10px] text-neutral-600">v0.2</span>
@@ -96,7 +100,7 @@ export function App() {
           </span>
 
           {/* Tick speed */}
-          <div className="flex items-center gap-1 rounded border border-neutral-800 px-1.5 py-0.5">
+          <div className="flex items-center gap-1 rounded border border-neutral-800/60 px-1.5 py-0.5">
             {TICK_SPEEDS.map((speed) => (
               <button
                 key={speed}
@@ -119,7 +123,7 @@ export function App() {
             className={`rounded px-3 py-1 text-xs transition-colors ${
               isPaused
                 ? 'border border-emerald-700 text-emerald-400 hover:bg-emerald-900/30'
-                : 'border border-neutral-700 text-neutral-400 hover:text-neutral-200'
+                : 'border border-neutral-700/60 text-neutral-400 hover:text-neutral-200'
             }`}
           >
             {isPaused ? 'Resume' : 'Pause'}
@@ -127,32 +131,69 @@ export function App() {
 
           <button
             onClick={newGame}
-            className="rounded border border-neutral-800 px-3 py-1 text-xs text-neutral-600 transition-colors hover:border-red-800 hover:text-red-400"
+            className="rounded border border-neutral-800/60 px-3 py-1 text-xs text-neutral-600 transition-colors hover:border-red-800 hover:text-red-400"
           >
             New
+          </button>
+
+          {/* Dashboard toggle */}
+          <button
+            onClick={() => {
+              setShowDashboard((v) => !v);
+            }}
+            className={`rounded px-3 py-1 text-xs transition-colors ${
+              showDashboard
+                ? 'border border-emerald-700/60 text-emerald-400'
+                : 'border border-neutral-700/60 text-neutral-500 hover:text-neutral-300'
+            }`}
+          >
+            {showDashboard ? 'Hide UI' : 'Show UI'}
           </button>
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex min-h-0 flex-1">
-        {/* Left: Map + Event log + Chart */}
-        <div className="flex flex-1 flex-col overflow-auto">
-          {/* Map area */}
-          <div className="flex-1 p-5">
-            <BiomeMap worldState={worldState} />
+      {/* Dashboard sidebar — right overlay */}
+      {showDashboard ? (
+        <div className="absolute top-11 right-0 bottom-0 z-10 flex w-80 flex-col border-l border-neutral-800/30 bg-neutral-950/85 backdrop-blur-sm">
+          {/* Species + Temperature */}
+          <div className="flex flex-1 flex-col gap-4 overflow-auto p-4">
+            <TemperatureControl
+              temperature={worldState.temperature}
+              onTemperatureChange={setTemperature}
+            />
+            {selectedSpecies ? (
+              <SpeciesCard
+                species={selectedSpecies}
+                allSpecies={worldState.species}
+                extinctSpecies={worldState.extinctSpecies}
+                biomes={worldState.biomes}
+                events={worldState.events}
+                currentTick={worldState.tick}
+                gridWidth={worldState.config.gridWidth}
+                onBack={() => {
+                  setSelectedSpeciesId(null);
+                }}
+                onSelectSpecies={setSelectedSpeciesId}
+              />
+            ) : (
+              <SpeciesList
+                species={speciesWithPopulation}
+                extinctCount={worldState.extinctSpeciesCount}
+                onSelectSpecies={setSelectedSpeciesId}
+              />
+            )}
           </div>
 
-          {/* Bottom panel tabs */}
-          <div className="flex border-t border-neutral-800/50">
-            {BOTTOM_TABS.map((tab) => (
+          {/* Panel tabs */}
+          <div className="flex border-t border-neutral-800/30">
+            {PANEL_TABS.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => {
-                  setBottomTab(tab.key);
+                  setPanelTab(tab.key);
                 }}
-                className={`px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider transition-colors ${
-                  bottomTab === tab.key
+                className={`flex-1 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wider transition-colors ${
+                  panelTab === tab.key
                     ? 'border-b-2 border-emerald-500 text-emerald-400'
                     : 'text-neutral-600 hover:text-neutral-400'
                 }`}
@@ -162,11 +203,11 @@ export function App() {
             ))}
           </div>
 
-          {/* Bottom panel content */}
-          <div className="min-h-0 flex-shrink-0 px-5 py-3">
-            {bottomTab === 'events' ? (
+          {/* Panel content */}
+          <div className="h-52 flex-shrink-0 overflow-auto px-4 py-3">
+            {panelTab === 'events' ? (
               <EventLog events={worldState.events} />
-            ) : bottomTab === 'chart' ? (
+            ) : panelTab === 'chart' ? (
               <PopulationChart history={populationHistory} speciesIds={speciesIds} />
             ) : (
               <PhylogeneticTree
@@ -179,36 +220,7 @@ export function App() {
             )}
           </div>
         </div>
-
-        {/* Right sidebar: Species + Temperature */}
-        <div className="flex w-72 flex-col gap-4 overflow-auto border-l border-neutral-800/50 p-4">
-          <TemperatureControl
-            temperature={worldState.temperature}
-            onTemperatureChange={setTemperature}
-          />
-          {selectedSpecies ? (
-            <SpeciesCard
-              species={selectedSpecies}
-              allSpecies={worldState.species}
-              extinctSpecies={worldState.extinctSpecies}
-              biomes={worldState.biomes}
-              events={worldState.events}
-              currentTick={worldState.tick}
-              gridWidth={worldState.config.gridWidth}
-              onBack={() => {
-                setSelectedSpeciesId(null);
-              }}
-              onSelectSpecies={setSelectedSpeciesId}
-            />
-          ) : (
-            <SpeciesList
-              species={speciesWithPopulation}
-              extinctCount={worldState.extinctSpeciesCount}
-              onSelectSpecies={setSelectedSpeciesId}
-            />
-          )}
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }

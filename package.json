@@ -17,9 +17,11 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@types/three": "^0.183.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "recharts": "^2.15.3"
+    "recharts": "^2.15.3",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
