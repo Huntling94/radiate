@@ -1,10 +1,13 @@
+import { useState } from 'react';
 import { useSimulation, formatElapsed } from './components/useSimulation.ts';
 import type { TickSpeed } from './components/useSimulation.ts';
 import { BiomeMap } from './components/BiomeMap.tsx';
 import { PopulationChart } from './components/PopulationChart.tsx';
 import { SpeciesList } from './components/SpeciesList.tsx';
+import { SpeciesCard } from './components/SpeciesCard.tsx';
 import { TemperatureControl } from './components/TemperatureControl.tsx';
 import { EventLog } from './components/EventLog.tsx';
+import type { Species } from './engine/index.ts';
 
 const TICK_SPEEDS: TickSpeed[] = [0.5, 1, 2, 5];
 
@@ -22,6 +25,25 @@ export function App() {
     newGame,
     dismissWelcome,
   } = useSimulation();
+
+  const [selectedSpeciesId, setSelectedSpeciesId] = useState<string | null>(null);
+
+  // Auto-clear: if the selected ID no longer exists anywhere, treat as no selection
+  const resolvedSelectedId =
+    selectedSpeciesId &&
+    (worldState.species.some((s) => s.id === selectedSpeciesId) ||
+      worldState.extinctSpecies.some((s) => s.id === selectedSpeciesId))
+      ? selectedSpeciesId
+      : null;
+
+  // Look up selected species from living (with population) or extinct (with 0 population)
+  const selectedSpecies: (Species & { totalPopulation: number }) | null = resolvedSelectedId
+    ? (speciesWithPopulation.find((s) => s.id === resolvedSelectedId) ??
+      (() => {
+        const ext = worldState.extinctSpecies.find((s) => s.id === resolvedSelectedId);
+        return ext ? { ...ext, totalPopulation: 0 } : null;
+      })())
+    : null;
 
   const speciesIds = worldState.species.map((s) => s.id);
 
@@ -128,10 +150,27 @@ export function App() {
             temperature={worldState.temperature}
             onTemperatureChange={setTemperature}
           />
-          <SpeciesList
-            species={speciesWithPopulation}
-            extinctCount={worldState.extinctSpeciesCount}
-          />
+          {selectedSpecies ? (
+            <SpeciesCard
+              species={selectedSpecies}
+              allSpecies={worldState.species}
+              extinctSpecies={worldState.extinctSpecies}
+              biomes={worldState.biomes}
+              events={worldState.events}
+              currentTick={worldState.tick}
+              gridWidth={worldState.config.gridWidth}
+              onBack={() => {
+                setSelectedSpeciesId(null);
+              }}
+              onSelectSpecies={setSelectedSpeciesId}
+            />
+          ) : (
+            <SpeciesList
+              species={speciesWithPopulation}
+              extinctCount={worldState.extinctSpeciesCount}
+              onSelectSpecies={setSelectedSpeciesId}
+            />
+          )}
         </div>
       </div>
     </div>

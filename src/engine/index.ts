@@ -3,6 +3,7 @@ export type {
   Biome,
   BiomeType,
   Species,
+  ExtinctSpecies,
   TrophicLevel,
   SimConfig,
   RngState,

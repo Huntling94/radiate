@@ -6,7 +6,7 @@
  * See ADR-002 (tick loop) and ADR-003 (population dynamics).
  */
 
-import type { WorldState, Species, SimEvent } from './types.ts';
+import type { WorldState, Species, ExtinctSpecies, SimEvent } from './types.ts';
 import { expressTraits, MAX_EVENTS } from './types.ts';
 import { geneticDistance } from './genome.ts';
 import { createRngFromState } from './rng.ts';
@@ -244,9 +244,15 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
 
   // Record extinction events
   const survivors = new Set(currentSpecies.map((s) => s.id));
-  const extinctSpecies = state.species.filter((s) => !survivors.has(s.id));
+  const newlyExtinct = state.species.filter((s) => !survivors.has(s.id));
 
-  for (const extinct of extinctSpecies) {
+  // Archive extinct species with full data
+  const archivedExtinct: ExtinctSpecies[] = newlyExtinct.map((s) => ({
+    ...s,
+    extinctionTick: finalTick,
+  }));
+
+  for (const extinct of newlyExtinct) {
     const totalPop = Object.values(extinct.populationByBiome).reduce((sum, p) => sum + p, 0);
     let cause = 'Population declined below survival threshold.';
     if (extinct.trophicLevel !== 'producer') {
@@ -285,7 +291,8 @@ export function tick(state: WorldState, deltaSec: number): WorldState {
     lastTimestamp: Date.now(),
     biomes,
     species: currentSpecies,
-    extinctSpeciesCount: state.extinctSpeciesCount + extinctSpecies.length,
+    extinctSpecies: [...state.extinctSpecies, ...archivedExtinct],
+    extinctSpeciesCount: state.extinctSpecies.length + archivedExtinct.length,
     rngState: rng.getState(),
     events: allEvents,
   };

@@ -123,6 +123,91 @@ describe('tick', () => {
     expect(result.elapsedSeconds).toBe(5);
   });
 
+  // --- Extinct species registry (BRF-008b) ---
+
+  it('archives extinct species with correct fields', () => {
+    let state = makeState();
+
+    // Isolate predator with no food — guaranteed extinction
+    const predator = state.species.find((s) => s.trophicLevel === 'predator')!;
+    const biomeId = Object.keys(predator.populationByBiome)[0] ?? '';
+    state = {
+      ...state,
+      species: [{ ...predator, populationByBiome: { [biomeId]: 5 } }],
+      extinctSpecies: [],
+    };
+
+    for (let i = 0; i < 200; i++) {
+      state = tick(state, 1);
+    }
+
+    // Predator should be extinct and archived
+    expect(state.species.length).toBe(0);
+    expect(state.extinctSpecies.length).toBe(1);
+    const archived = state.extinctSpecies[0];
+    expect(archived.id).toBe(predator.id);
+    expect(archived.name).toBe(predator.name);
+    expect(archived.trophicLevel).toBe(predator.trophicLevel);
+    expect(archived.extinctionTick).toBeGreaterThan(0);
+  });
+
+  it('extinctSpeciesCount equals extinctSpecies.length', () => {
+    let state = makeState();
+
+    // Isolate predator — will go extinct
+    const predator = state.species.find((s) => s.trophicLevel === 'predator')!;
+    const biomeId = Object.keys(predator.populationByBiome)[0] ?? '';
+    state = {
+      ...state,
+      species: [{ ...predator, populationByBiome: { [biomeId]: 5 } }],
+      extinctSpecies: [],
+    };
+
+    for (let i = 0; i < 200; i++) {
+      state = tick(state, 1);
+      expect(state.extinctSpeciesCount).toBe(state.extinctSpecies.length);
+    }
+  });
+
+  it('extinct species is not duplicated in species array', () => {
+    let state = makeState();
+
+    for (let i = 0; i < 500; i++) {
+      state = tick(state, 1);
+    }
+
+    const aliveIds = new Set(state.species.map((s) => s.id));
+    const extinctIds = new Set(state.extinctSpecies.map((s) => s.id));
+
+    // No overlap between living and extinct
+    for (const id of extinctIds) {
+      expect(aliveIds.has(id)).toBe(false);
+    }
+  });
+
+  it('archives multiple extinctions in one tick', () => {
+    let state = makeState();
+
+    // Remove all food sources so herbivore and predator both starve
+    const consumers = state.species.filter((s) => s.trophicLevel !== 'producer');
+    state = {
+      ...state,
+      species: consumers.map((s) => {
+        const biomeId = Object.keys(s.populationByBiome)[0] ?? '';
+        return { ...s, populationByBiome: { [biomeId]: 3 } };
+      }),
+      extinctSpecies: [],
+    };
+
+    for (let i = 0; i < 200; i++) {
+      state = tick(state, 1);
+    }
+
+    // Both consumers should be extinct and archived
+    expect(state.species.length).toBe(0);
+    expect(state.extinctSpecies.length).toBe(consumers.length);
+  });
+
   // T10: Trophic cascade — producer extinction causes herbivore decline
   it('removing producers causes herbivore population decline', () => {
     let state = makeState();

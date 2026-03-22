@@ -136,3 +136,5 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 | F-006 | Genome mutation and speciation | v0.1 | Complete |
 | F-007 | Offline progression and persistence | v0.1 | Complete |
 | F-008 | GitHub Pages auto-deploy | v0.1 | Complete |
+| F-009 | Species cards / bestiary | v0.2 | Complete |
+| F-010 | Extinct species registry | v0.2 | Complete |

@@ -22,6 +22,8 @@ export interface WorldState {
   biomes: Biome[];
   /** All currently living species */
   species: Species[];
+  /** Archive of all species that have gone extinct */
+  extinctSpecies: ExtinctSpecies[];
   /** Running count of species that have gone extinct */
   extinctSpeciesCount: number;
   /** Simulation configuration parameters */
@@ -79,6 +81,11 @@ export interface Biome {
 // ---------------------------------------------------------------------------
 
 export type TrophicLevel = 'producer' | 'herbivore' | 'predator';
+
+export interface ExtinctSpecies extends Species {
+  /** Tick when this species went extinct */
+  extinctionTick: number;
+}
 
 export interface Species {
   /** Unique identifier */

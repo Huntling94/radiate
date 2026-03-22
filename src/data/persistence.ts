@@ -37,6 +37,9 @@ export function loadWorld(): WorldState | null {
     if (!Array.isArray(state['events'])) {
       state['events'] = [];
     }
+    if (!Array.isArray(state['extinctSpecies'])) {
+      state['extinctSpecies'] = [];
+    }
     const species = state['species'] as Array<Record<string, unknown>>;
     for (const s of species) {
       if (!Array.isArray(s['originalGenome'])) {

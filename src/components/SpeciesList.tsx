@@ -4,6 +4,7 @@ import { TRAIT_REGISTRY, expressTraits } from '../engine/index.ts';
 interface SpeciesListProps {
   species: Array<Species & { totalPopulation: number }>;
   extinctCount: number;
+  onSelectSpecies: (id: string) => void;
 }
 
 const TROPHIC_LABELS: Record<string, string> = {
@@ -46,7 +47,7 @@ function TraitBar({
   );
 }
 
-export function SpeciesList({ species, extinctCount }: SpeciesListProps) {
+export function SpeciesList({ species, extinctCount, onSelectSpecies }: SpeciesListProps) {
   return (
     <div>
       <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-neutral-500">
@@ -65,7 +66,10 @@ export function SpeciesList({ species, extinctCount }: SpeciesListProps) {
             return (
               <li
                 key={s.id}
-                className="rounded-lg border border-neutral-800/50 bg-neutral-900/50 p-3"
+                onClick={() => {
+                  onSelectSpecies(s.id);
+                }}
+                className="cursor-pointer rounded-lg border border-neutral-800/50 bg-neutral-900/50 p-3 transition-colors hover:border-neutral-700 hover:bg-neutral-800/50"
               >
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-neutral-200">{s.name}</span>

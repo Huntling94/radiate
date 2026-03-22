@@ -175,6 +175,7 @@ export function createInitialState(seed: number): WorldState {
     temperature,
     biomes,
     species,
+    extinctSpecies: [],
     extinctSpeciesCount: 0,
     config,
     rngState: rng.getState(),
