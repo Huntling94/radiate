@@ -113,7 +113,9 @@ The engine/component boundary is enforced at lint time via ESLint's `no-restrict
 
 ## Current phase
 
-**v0.1 "First Life"** — Core simulation engine, 2D biome map, population charts, species list, one environmental control (temperature), offline progression, GitHub Pages deploy.
+**v0.2 "Naturalist"** — UI overhaul, phylogenetic tree, species cards/bestiary, event log with causal attribution, species share codes, image export.
+
+v0.1 "First Life" is complete (Session 1, 2026-03-22).
 
 ## Lessons learned
 
@@ -125,4 +127,11 @@ The engine/component boundary is enforced at lint time via ESLint's `no-restrict
 
 | # | Feature | Phase | Status |
 |---|---------|-------|--------|
-| — | (None yet) | | |
+| F-001 | Core simulation engine (tick loop, Lotka-Volterra) | v0.1 | Complete |
+| F-002 | 2D Canvas biome map with species colour coding | v0.1 | Complete |
+| F-003 | Population charts (Recharts) | v0.1 | Complete |
+| F-004 | Species list with trophic levels | v0.1 | Complete |
+| F-005 | Temperature control slider | v0.1 | Complete |
+| F-006 | Genome mutation and speciation | v0.1 | Complete |
+| F-007 | Offline progression and persistence | v0.1 | Complete |
+| F-008 | GitHub Pages auto-deploy | v0.1 | Complete |
