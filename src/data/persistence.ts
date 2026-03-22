@@ -31,7 +31,20 @@ export function loadWorld(): WorldState | null {
     const data = JSON.parse(raw) as SaveFormat;
     if (data.version !== 1) return null;
 
-    return data.state;
+    // Migrate: add fields introduced after initial save format.
+    // Saved data may lack fields added in later versions.
+    const state = data.state as Record<string, unknown>;
+    if (!Array.isArray(state['events'])) {
+      state['events'] = [];
+    }
+    const species = state['species'] as Array<Record<string, unknown>>;
+    for (const s of species) {
+      if (!Array.isArray(s['originalGenome'])) {
+        s['originalGenome'] = [...(s['genome'] as number[])];
+      }
+    }
+
+    return state as unknown as WorldState;
   } catch {
     return null;
   }
