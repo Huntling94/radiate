@@ -7,7 +7,16 @@ import { SpeciesList } from './components/SpeciesList.tsx';
 import { SpeciesCard } from './components/SpeciesCard.tsx';
 import { TemperatureControl } from './components/TemperatureControl.tsx';
 import { EventLog } from './components/EventLog.tsx';
+import { PhylogeneticTree } from './components/PhylogeneticTree.tsx';
 import type { Species } from './engine/index.ts';
+
+type BottomTab = 'events' | 'chart' | 'tree';
+
+const BOTTOM_TABS: { key: BottomTab; label: string }[] = [
+  { key: 'events', label: 'Events' },
+  { key: 'chart', label: 'Chart' },
+  { key: 'tree', label: 'Tree' },
+];
 
 const TICK_SPEEDS: TickSpeed[] = [0.5, 1, 2, 5];
 
@@ -27,6 +36,7 @@ export function App() {
   } = useSimulation();
 
   const [selectedSpeciesId, setSelectedSpeciesId] = useState<string | null>(null);
+  const [bottomTab, setBottomTab] = useState<BottomTab>('events');
 
   // Auto-clear: if the selected ID no longer exists anywhere, treat as no selection
   const resolvedSelectedId =
@@ -133,14 +143,40 @@ export function App() {
             <BiomeMap worldState={worldState} />
           </div>
 
-          {/* Event log */}
-          <div className="border-t border-neutral-800/50 px-5 py-3">
-            <EventLog events={worldState.events} />
+          {/* Bottom panel tabs */}
+          <div className="flex border-t border-neutral-800/50">
+            {BOTTOM_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setBottomTab(tab.key);
+                }}
+                className={`px-4 py-1.5 text-[11px] font-medium uppercase tracking-wider transition-colors ${
+                  bottomTab === tab.key
+                    ? 'border-b-2 border-emerald-500 text-emerald-400'
+                    : 'text-neutral-600 hover:text-neutral-400'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* Population chart */}
-          <div className="border-t border-neutral-800/50 px-5 py-3">
-            <PopulationChart history={populationHistory} speciesIds={speciesIds} />
+          {/* Bottom panel content */}
+          <div className="min-h-0 flex-shrink-0 px-5 py-3">
+            {bottomTab === 'events' ? (
+              <EventLog events={worldState.events} />
+            ) : bottomTab === 'chart' ? (
+              <PopulationChart history={populationHistory} speciesIds={speciesIds} />
+            ) : (
+              <PhylogeneticTree
+                species={worldState.species}
+                extinctSpecies={worldState.extinctSpecies}
+                currentTick={worldState.tick}
+                selectedSpeciesId={resolvedSelectedId}
+                onSelectSpecies={setSelectedSpeciesId}
+              />
+            )}
           </div>
         </div>
 

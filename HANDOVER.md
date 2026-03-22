@@ -53,20 +53,33 @@ These preferences were observed across 32 sessions of collaborative development 
 - Save migration for existing worlds (adds empty `extinctSpecies` array)
 - 4 new tests (82 total), 2 new BRFs
 
+**v0.2 Chunk 10 — Phylogenetic Tree (BRF-009):**
+- Interactive horizontal dendrogram rendered on Canvas, showing all living and extinct species
+- Time flows left-to-right, living branches extend to current tick, extinct branches terminate with × marker
+- Clickable nodes open species cards; selected species ancestry path highlighted in emerald
+- Tab system in bottom panel (Events | Chart | Tree) replaces stacked layout
+- No new dependencies — custom DFS slot-based layout algorithm
+
 ### Commits (Session 2)
 1. `3c1e22e` — Species cards with extinct species registry
+2. (pending) — Phylogenetic tree with bottom panel tab system
 
-### What's next (v0.2 remaining)
+### Reprioritisation (Session 2)
+
+Species share codes (chunk 11) and image export (chunk 12) deferred — they deliver most value alongside the social backend (v0.3). 3D world view brought forward from v0.4 to follow phylogenetic tree. DDR-002 (3D rendering approach) must be resolved first.
+
+### What's next
 
 | Chunk | Priority | Delivers | Dependencies |
 |-------|----------|----------|-------------|
-| 10 - Phylogenetic tree | Next | Visual branching tree of all species (living + extinct) | Builds directly on extinct species registry from chunk 9 |
-| 11 - Species share codes | After 10 | Export/import species as URL-encoded JSON | Species card provides the UI surface for share button |
-| 12 - Image export + tuning | Last | PNG export of world/species cards, edge-of-chaos regulator | Pairs with DDR-005 (simulation pacing) |
+| 11 - Species share codes | Deferred to v0.3 | Export/import species as URL-encoded JSON | Social backend (DDR-001) |
+| 12 - Image export + tuning | Deferred to v0.3 | PNG export, edge-of-chaos regulator | DDR-005 (simulation pacing) |
+| **NEW** - 3D world view | Next | Three.js low-poly terrain from biome data, orbital camera, species indicators | DDR-002 (rendering approach — pending) |
 
 ### Active DDRs
-- DDR-005: Simulation pacing (resolve during chunk 12 tuning)
-- DDR-010: Simulation rollback/checkpoints (v0.2 — evaluate after phylogenetic tree)
+- DDR-002: 3D rendering approach (resolve before 3D implementation)
+- DDR-005: Simulation pacing (deferred to v0.3 tuning)
+- DDR-010: Simulation rollback/checkpoints (evaluate during v0.3)
 
 ---
 
