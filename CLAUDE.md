@@ -121,7 +121,7 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 
 | # | Lesson | Root Cause | Prevention Rule |
 |---|--------|-----------|-----------------|
-| — | (None yet — add lessons as the project progresses) | | |
+| 1 | Adding fields to WorldState breaks saved games | Old localStorage saves lack new fields, causing TypeError on load | Always add migration logic in `loadWorld()` when adding fields to WorldState. Test with a save from the previous format. |
 
 ## Feature registry
 
