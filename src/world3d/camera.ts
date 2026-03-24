@@ -1,9 +1,11 @@
 /**
  * WASD exploration camera with mouse orbit and scroll zoom.
  * Camera target moves with WASD; orbit wraps around the moving target.
+ * Uses Babylon.js FreeCamera with all default inputs disabled — custom rig only.
  */
 
-import * as THREE from 'three';
+import { FreeCamera, Vector3 } from '@babylonjs/core';
+import type { Scene } from '@babylonjs/core';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -23,8 +25,8 @@ const LERP_FACTOR = 0.08;
 // ---------------------------------------------------------------------------
 
 export interface CameraRig {
-  camera: THREE.PerspectiveCamera;
-  target: THREE.Vector3;
+  camera: FreeCamera;
+  target: Vector3;
   orbitAngle: number;
   orbitPitch: number;
   distance: number;
@@ -41,9 +43,16 @@ export interface CameraRig {
 // Public API
 // ---------------------------------------------------------------------------
 
-export function createCameraRig(canvas: HTMLCanvasElement): CameraRig {
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 800);
-  const target = new THREE.Vector3(0, 0, 0);
+export function createCameraRig(canvas: HTMLCanvasElement, scene: Scene): CameraRig {
+  const camera = new FreeCamera('camera', new Vector3(0, 20, 0), scene);
+  camera.minZ = 0.1;
+  camera.maxZ = 800;
+  camera.fov = (60 * Math.PI) / 180; // 60 degrees in radians
+
+  // Disable all built-in Babylon camera inputs — we handle input ourselves
+  camera.inputs.clear();
+
+  const target = new Vector3(0, 0, 0);
   let orbitAngle = Math.PI / 4;
   let orbitPitch = 0.6;
   let distance = 40;
@@ -52,8 +61,9 @@ export function createCameraRig(canvas: HTMLCanvasElement): CameraRig {
   let lastMouseX = 0;
   let lastMouseY = 0;
 
-  // Smooth camera position
-  const smoothCamPos = new THREE.Vector3();
+  // Smooth camera position — pre-allocated to avoid GC pressure
+  const smoothCamPos = new Vector3();
+  const _desiredPos = new Vector3(); // temp vector for lerp
   let initialised = false;
 
   // Key handlers
@@ -105,41 +115,56 @@ export function createCameraRig(canvas: HTMLCanvasElement): CameraRig {
 
   function update(delta: number, getHeight: (x: number, z: number) => number): void {
     // WASD movement relative to camera facing (horizontal plane)
-    const forward = new THREE.Vector3(-Math.sin(orbitAngle), 0, -Math.cos(orbitAngle));
-    const right = new THREE.Vector3(forward.z, 0, -forward.x);
+    const sinAngle = Math.sin(orbitAngle);
+    const cosAngle = Math.cos(orbitAngle);
     const moveSpeed = MOVE_SPEED * delta;
 
-    if (keys.has('w')) target.addScaledVector(forward, moveSpeed);
-    if (keys.has('s')) target.addScaledVector(forward, -moveSpeed);
-    if (keys.has('a')) target.addScaledVector(right, -moveSpeed);
-    if (keys.has('d')) target.addScaledVector(right, moveSpeed);
+    // Forward/right directions on XZ plane
+    const fwdX = -sinAngle;
+    const fwdZ = -cosAngle;
+    const rightX = cosAngle;
+    const rightZ = -sinAngle;
 
-    // Keep target on terrain
-    const terrainY = getHeight(target.x, target.z);
-    target.y = terrainY;
-
-    // Compute camera position from orbit parameters
-    const desiredPos = new THREE.Vector3(
-      target.x + Math.sin(orbitAngle) * Math.cos(orbitPitch) * distance,
-      target.y + Math.sin(orbitPitch) * distance,
-      target.z + Math.cos(orbitAngle) * Math.cos(orbitPitch) * distance,
-    );
-
-    // Smooth interpolation
-    if (!initialised) {
-      smoothCamPos.copy(desiredPos);
-      initialised = true;
-    } else {
-      smoothCamPos.lerp(desiredPos, LERP_FACTOR);
+    if (keys.has('w')) {
+      target.x += fwdX * moveSpeed;
+      target.z += fwdZ * moveSpeed;
+    }
+    if (keys.has('s')) {
+      target.x -= fwdX * moveSpeed;
+      target.z -= fwdZ * moveSpeed;
+    }
+    if (keys.has('a')) {
+      target.x -= rightX * moveSpeed;
+      target.z -= rightZ * moveSpeed;
+    }
+    if (keys.has('d')) {
+      target.x += rightX * moveSpeed;
+      target.z += rightZ * moveSpeed;
     }
 
-    camera.position.copy(smoothCamPos);
-    camera.lookAt(target.x, target.y + 2, target.z);
+    // Keep target on terrain
+    target.y = getHeight(target.x, target.z);
+
+    // Compute desired camera position from orbit parameters
+    _desiredPos.x = target.x + sinAngle * Math.cos(orbitPitch) * distance;
+    _desiredPos.y = target.y + Math.sin(orbitPitch) * distance;
+    _desiredPos.z = target.z + cosAngle * Math.cos(orbitPitch) * distance;
+
+    // Smooth interpolation (LerpToRef avoids allocation)
+    if (!initialised) {
+      smoothCamPos.copyFrom(_desiredPos);
+      initialised = true;
+    } else {
+      Vector3.LerpToRef(smoothCamPos, _desiredPos, LERP_FACTOR, smoothCamPos);
+    }
+
+    camera.position.copyFrom(smoothCamPos);
+    camera.setTarget(new Vector3(target.x, target.y + 2, target.z));
   }
 
-  function handleResize(width: number, height: number): void {
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+  function handleResize(_width: number, _height: number): void {
+    // Babylon handles camera aspect ratio via engine.resize()
+    // This function exists for interface compatibility
   }
 
   function dispose(): void {

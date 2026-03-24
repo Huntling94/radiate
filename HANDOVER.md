@@ -37,7 +37,7 @@ These preferences were observed across 32 sessions of collaborative development 
 
 ### What Will is learning
 - This is Will's first project using Claude Code (he's learning the tool alongside building the game).
-- Will is learning 3D graphics programming (Three.js) as a future skill — this is deferred to v0.4+ but is a personal learning goal.
+- Will is learning 3D graphics programming (Babylon.js, migrated from Three.js in Session 3) as a personal learning goal.
 - Will is learning game development concepts: ECS architecture, game loops, procedural generation, agent-based simulation. Explain these when they come up.
 - Will has React/TypeScript/Vite familiarity from LPMDS but is not a developer. He can follow code and challenge architectural direction, but cannot review code for correctness. Claude must self-govern code quality through automated gates and testing (see Quality Framework in CLAUDE.md).
 
@@ -117,11 +117,17 @@ These preferences were observed across 32 sessions of collaborative development 
 4. **Three.js now, Babylon.js later** — validate 3D concept cheaply, migrate at Phase 3 boundary if vision still includes player character
 
 ### Architecture notes for next session
-- `src/world3d/` contains all Three.js code — no Three.js imports leak outside this directory
-- `terrain.ts` is pure TypeScript (no Three.js) — terrain generation logic survives engine migration
-- `creatures.ts` `CreatureManager` class manages creature lifecycle and behaviour — stateful, synced with WorldState each tick
-- `camera.ts` is a custom WASD+orbit rig — replaces Three.js OrbitControls
-- Dashboard overlay (species cards, phylogenetic tree, charts) floats over the 3D canvas via absolute positioning
+- `src/world3d/` contains all Babylon.js code — migrated from Three.js in Session 3 (BRF-015)
+- `terrain.ts` is pure TypeScript (no Babylon.js) — survived the engine migration unchanged
+- `creatures.ts` `CreatureManager` class manages creature lifecycle and behaviour — uses custom toon ShaderMaterial (GLSL quantized diffuse bands)
+- `camera.ts` is a custom WASD+orbit rig — Babylon's built-in inputs disabled (`camera.inputs.clear()`)
+- `scene.ts` uses `scene.useRightHandedSystem = true` to match Three.js coordinate conventions
+- `scene.registerBeforeRender()` pattern for update loop — no manual requestAnimationFrame
+- Pixel ratio capped at 2x via `engine.setHardwareScalingLevel()`
+- Creature picking uses `mesh.metadata = { speciesId, pickable: true }` — no parent chain walking
+- Shadow generator requires explicit `addShadowCaster()` / `removeShadowCaster()` for each mesh
+- Dashboard overlay (species cards, phylogenetic tree, charts) floats over the Babylon canvas via absolute positioning
+- **Phase 3 unlocked:** Babylon.js built-in CharacterController, Havok physics, FollowCamera available for player character work
 
 ---
 
@@ -187,7 +193,7 @@ These preferences were observed across 32 sessions of collaborative development 
 An idle evolution ecosystem builder. The player shapes a world's environment and watches evolution unfold over geological timescales. The simulation runs while the player is away. Species can be shared between players' worlds.
 
 ### Tech stack
-TypeScript, React 19, Vite 8, Tailwind CSS v4, Recharts, HTML Canvas 2D. Browser-first (GitHub Pages). PWA for mobile (future).
+TypeScript, React 19, Vite 8, Tailwind CSS v4, Recharts, Babylon.js (3D engine). Browser-first (GitHub Pages). PWA for mobile (future).
 
 ### Architecture
 ```

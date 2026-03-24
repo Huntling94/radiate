@@ -1,13 +1,13 @@
 /**
- * React component hosting the Three.js 3D world view.
- * Manages canvas lifecycle, resize, creature lifecycle, interaction, and animation loop.
+ * React component hosting the Babylon.js 3D world view.
+ * Manages canvas lifecycle, resize, creature lifecycle, interaction, and render loop.
  */
 
 import { useRef, useEffect } from 'react';
 import type { WorldState } from '../engine/index.ts';
 import type { SculptAction } from '../engine/index.ts';
 import { generateTerrain, getHeightAtWorldXZ } from './terrain.ts';
-import { createScene, updateTerrainMesh, resizeRenderer, renderFrame } from './scene.ts';
+import { createScene, updateTerrainMesh, resizeRenderer } from './scene.ts';
 import type { SceneContext } from './scene.ts';
 import { createCameraRig } from './camera.ts';
 import type { CameraRig } from './camera.ts';
@@ -42,9 +42,7 @@ export function World3D({
   const cameraRef = useRef<CameraRig | null>(null);
   const creaturesRef = useRef<CreatureManager | null>(null);
   const interactionRef = useRef<InteractionState | null>(null);
-  const rafRef = useRef<number>(0);
   const worldStateRef = useRef(worldState);
-  const lastTimeRef = useRef(0);
   const callbacksRef = useRef({ onSelectSpecies, onSculpt });
 
   useEffect(() => {
@@ -62,18 +60,29 @@ export function World3D({
     }
   }, [activeTool]);
 
-  // Initialise Three.js scene, camera, creatures, interaction
+  // Initialise Babylon.js scene, camera, creatures, interaction
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Ensure canvas has dimensions before Babylon Engine init
+    const container = containerRef.current;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+
     const ctx = createScene(canvas);
     ctxRef.current = ctx;
 
-    const cameraRig = createCameraRig(canvas);
+    const cameraRig = createCameraRig(canvas, ctx.scene);
     cameraRef.current = cameraRig;
 
-    const creatures = new CreatureManager(ctx.scene);
+    // Set as active camera so scene.render() uses it
+    ctx.scene.activeCamera = cameraRig.camera;
+
+    const creatures = new CreatureManager(ctx.scene, ctx.shadowGenerator);
     creaturesRef.current = creatures;
 
     const interaction = createInteraction(
@@ -96,32 +105,32 @@ export function World3D({
     );
     interactionRef.current = interaction;
 
-    lastTimeRef.current = performance.now() / 1000;
-
-    // Animation loop
-    function animate(): void {
-      rafRef.current = requestAnimationFrame(animate);
+    // Register pre-render updates using Babylon's observable pattern
+    ctx.scene.registerBeforeRender(() => {
+      const delta = ctx.engine.getDeltaTime() / 1000;
+      const clampedDelta = Math.min(delta, 0.1);
       const now = performance.now() / 1000;
-      const delta = Math.min(now - lastTimeRef.current, 0.1);
-      lastTimeRef.current = now;
 
       const ws = worldStateRef.current;
 
-      cameraRig.update(delta, (x, z) =>
+      cameraRig.update(clampedDelta, (x, z) =>
         getHeightAtWorldXZ(x, z, ws.biomes, ws.config.gridWidth, ws.config.gridHeight),
       );
 
-      creatures.update(delta, now);
+      creatures.update(clampedDelta, now);
       interaction.update(cameraRig.camera);
+    });
 
-      renderFrame(ctx, cameraRig.camera);
-    }
-    animate();
+    // Start render loop
+    ctx.engine.runRenderLoop(() => {
+      ctx.scene.render();
+    });
 
     return () => {
-      cancelAnimationFrame(rafRef.current);
+      ctx.engine.stopRenderLoop();
       interaction.dispose();
       cameraRig.dispose();
+      // engine.dispose() also disposes the scene — no separate scene.dispose()
       ctx.dispose();
       ctxRef.current = null;
       cameraRef.current = null;
@@ -135,22 +144,17 @@ export function World3D({
     const container = containerRef.current;
     if (!container) return;
 
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0] as ResizeObserverEntry | undefined;
-      if (!entry || !ctxRef.current || !cameraRef.current) return;
-      const { width, height } = entry.contentRect;
-      if (width > 0 && height > 0) {
-        resizeRenderer(ctxRef.current, width, height);
-        cameraRef.current.handleResize(width, height);
+    const observer = new ResizeObserver(() => {
+      if (ctxRef.current) {
+        resizeRenderer(ctxRef.current);
       }
     });
 
     observer.observe(container);
 
-    const rect = container.getBoundingClientRect();
-    if (ctxRef.current && cameraRef.current && rect.width > 0 && rect.height > 0) {
-      resizeRenderer(ctxRef.current, rect.width, rect.height);
-      cameraRef.current.handleResize(rect.width, rect.height);
+    // Initial resize
+    if (ctxRef.current) {
+      resizeRenderer(ctxRef.current);
     }
 
     return () => {

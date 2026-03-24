@@ -4,7 +4,16 @@
  * All behaviour is cosmetic — the engine drives actual population dynamics.
  */
 
-import * as THREE from 'three';
+import {
+  TransformNode,
+  MeshBuilder,
+  ShaderMaterial,
+  Effect,
+  Color3,
+  Vector3,
+  Mesh,
+} from '@babylonjs/core';
+import type { Scene, ShadowGenerator, AbstractMesh } from '@babylonjs/core';
 import type { Species, TrophicLevel, Biome } from '../engine/index.ts';
 import { expressTraits } from '../engine/index.ts';
 import {
@@ -40,6 +49,94 @@ const TROPHIC_HUE: Record<TrophicLevel, number> = {
 };
 
 // ---------------------------------------------------------------------------
+// Toon shader
+// ---------------------------------------------------------------------------
+
+let toonShaderRegistered = false;
+
+function ensureToonShader(): void {
+  if (toonShaderRegistered) return;
+  toonShaderRegistered = true;
+
+  Effect.ShadersStore['toonVertexShader'] = /* glsl */ `
+    precision highp float;
+    attribute vec3 position;
+    attribute vec3 normal;
+    uniform mat4 worldViewProjection;
+    uniform mat4 world;
+    varying vec3 vNormalW;
+    varying vec3 vPositionW;
+    void main() {
+      vec4 worldPos = world * vec4(position, 1.0);
+      vPositionW = worldPos.xyz;
+      vNormalW = normalize((world * vec4(normal, 0.0)).xyz);
+      gl_Position = worldViewProjection * vec4(position, 1.0);
+    }
+  `;
+
+  Effect.ShadersStore['toonFragmentShader'] = /* glsl */ `
+    precision highp float;
+    uniform vec3 uColor;
+    uniform vec3 uLightDir;
+    varying vec3 vNormalW;
+    varying vec3 vPositionW;
+    void main() {
+      vec3 n = normalize(vNormalW);
+      float NdotL = max(dot(n, uLightDir), 0.0);
+      float toon = floor(NdotL * 3.0 + 0.5) / 3.0;
+      vec3 finalColor = uColor * (0.35 + 0.65 * toon);
+      gl_FragColor = vec4(finalColor, 1.0);
+    }
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// HSL to Color3 utility
+// ---------------------------------------------------------------------------
+
+/**
+ * Convert HSL colour to Babylon Color3.
+ * @param h hue in degrees (0–360)
+ * @param s saturation (0–1)
+ * @param l lightness (0–1)
+ */
+function hslToColor3(h: number, s: number, l: number): Color3 {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  const m = l - c / 2;
+
+  let r: number, g: number, b: number;
+  if (hp < 1) {
+    r = c;
+    g = x;
+    b = 0;
+  } else if (hp < 2) {
+    r = x;
+    g = c;
+    b = 0;
+  } else if (hp < 3) {
+    r = 0;
+    g = c;
+    b = x;
+  } else if (hp < 4) {
+    r = 0;
+    g = x;
+    b = c;
+  } else if (hp < 5) {
+    r = x;
+    g = 0;
+    b = c;
+  } else {
+    r = c;
+    g = 0;
+    b = x;
+  }
+
+  return new Color3(r + m, g + m, b + m);
+}
+
+// ---------------------------------------------------------------------------
 // Deterministic hash
 // ---------------------------------------------------------------------------
 
@@ -60,19 +157,15 @@ function hashString(s: string): number {
 // Creature appearance
 // ---------------------------------------------------------------------------
 
-function computeColour(species: Species): THREE.Color {
+function computeColour(species: Species): Color3 {
   const traits = expressTraits(species.genome);
   const baseHue = TROPHIC_HUE[species.trophicLevel];
   const hueShift = (traits.heatTolerance - traits.coldTolerance) * 15;
-  // Add species-specific hue variation
   const speciesHueOffset = (hashString(species.id) % 30) - 15;
   const hue = (((baseHue + hueShift + speciesHueOffset) % 360) + 360) % 360;
   const saturation = 0.5 + Math.min(0.4, traits.metabolism * 0.2);
   const lightness = 0.4 + Math.min(0.2, traits.size * 0.08);
-
-  const colour = new THREE.Color();
-  colour.setHSL(hue / 360, saturation, lightness);
-  return colour;
+  return hslToColor3(hue, saturation, lightness);
 }
 
 function computeScale(species: Species): number {
@@ -86,112 +179,168 @@ function computeSpeed(species: Species): number {
 }
 
 // ---------------------------------------------------------------------------
+// Toon material creation
+// ---------------------------------------------------------------------------
+
+function createToonMaterial(name: string, colour: Color3, scene: Scene): ShaderMaterial {
+  ensureToonShader();
+  const mat = new ShaderMaterial(name, scene, 'toon', {
+    attributes: ['position', 'normal'],
+    uniforms: ['worldViewProjection', 'world', 'uColor', 'uLightDir'],
+  });
+  mat.setVector3('uColor', new Vector3(colour.r, colour.g, colour.b));
+  // Light direction normalised — matches sun direction in scene.ts
+  mat.setVector3('uLightDir', new Vector3(0.4, 0.6, 0.2).normalize());
+  mat.backFaceCulling = true;
+  return mat;
+}
+
+// ---------------------------------------------------------------------------
 // Cute creature mesh builder
 // ---------------------------------------------------------------------------
 
-function buildCreatureMesh(species: Species): THREE.Group {
+function buildCreatureMesh(
+  species: Species,
+  scene: Scene,
+  shadowGenerator: ShadowGenerator,
+): TransformNode {
   const colour = computeColour(species);
   const scale = computeScale(species);
   const traits = expressTraits(species.genome);
-  const group = new THREE.Group();
+  const root = new TransformNode('creature_' + species.id, scene);
 
-  const bodyMat = new THREE.MeshToonMaterial({ color: colour });
-  const eyeWhiteMat = new THREE.MeshToonMaterial({ color: 0xffffff });
-  const pupilMat = new THREE.MeshToonMaterial({ color: 0x111111 });
+  const bodyMat = createToonMaterial('body_' + species.id, colour, scene);
+  const eyeWhiteMat = createToonMaterial('eyeW_' + species.id, new Color3(1, 1, 1), scene);
+  const pupilMat = createToonMaterial(
+    'pupil_' + species.id,
+    new Color3(0.067, 0.067, 0.067),
+    scene,
+  );
 
-  // Enable shadow casting on all child meshes
-  const enableShadows = (obj: THREE.Object3D) => {
-    obj.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.castShadow = true;
-      }
-    });
+  // Helper to create a sphere mesh parented to root
+  const makeSphere = (
+    name: string,
+    diameter: number,
+    mat: ShaderMaterial,
+    pos: Vector3,
+    scaleXYZ?: Vector3,
+  ): Mesh => {
+    const m = MeshBuilder.CreateSphere(name, { diameter, segments: 10 }, scene);
+    m.material = mat;
+    m.position = pos;
+    if (scaleXYZ) m.scaling = scaleXYZ;
+    m.parent = root;
+    m.metadata = { speciesId: species.id, pickable: true };
+    shadowGenerator.addShadowCaster(m);
+    return m;
+  };
+
+  // Helper to create a cylinder mesh parented to root
+  const makeCylinder = (
+    name: string,
+    diameterTop: number,
+    diameterBottom: number,
+    height: number,
+    mat: ShaderMaterial,
+    pos: Vector3,
+  ): Mesh => {
+    const m = MeshBuilder.CreateCylinder(
+      name,
+      { diameterTop, diameterBottom, height, tessellation: 8 },
+      scene,
+    );
+    m.material = mat;
+    m.position = pos;
+    m.parent = root;
+    m.metadata = { speciesId: species.id, pickable: true };
+    shadowGenerator.addShadowCaster(m);
+    return m;
   };
 
   if (species.trophicLevel === 'producer') {
     // Mushroom-like: short stalk + round cap
-    const stalk = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.15 * scale, 0.2 * scale, 0.6 * scale, 8),
+    makeCylinder(
+      'stalk',
+      0.3 * scale,
+      0.4 * scale,
+      0.6 * scale,
       bodyMat,
+      new Vector3(0, 0.3 * scale, 0),
     );
-    stalk.position.y = 0.3 * scale;
-    group.add(stalk);
-
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.45 * scale, 12, 8), bodyMat);
-    cap.scale.set(1, 0.6, 1);
-    cap.position.y = 0.7 * scale;
-    group.add(cap);
+    makeSphere('cap', 0.9 * scale, bodyMat, new Vector3(0, 0.7 * scale, 0), new Vector3(1, 0.6, 1));
 
     // Eyes on the cap
     const eyeOffset = 0.18 * scale;
     const eyeY = 0.65 * scale;
     const eyeZ = 0.3 * scale;
     for (const side of [-1, 1]) {
-      const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.08 * scale, 8, 6), eyeWhiteMat);
-      eyeWhite.position.set(side * eyeOffset, eyeY, eyeZ);
-      group.add(eyeWhite);
-
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.04 * scale, 6, 4), pupilMat);
-      pupil.position.set(side * eyeOffset, eyeY, eyeZ + 0.05 * scale);
-      group.add(pupil);
+      makeSphere('eyeW', 0.16 * scale, eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
+      makeSphere(
+        'pupil',
+        0.08 * scale,
+        pupilMat,
+        new Vector3(side * eyeOffset, eyeY, eyeZ + 0.05 * scale),
+      );
     }
   } else if (species.trophicLevel === 'herbivore') {
     // Chubby round body + large head
     const stretch = 0.8 + traits.speed * 0.15;
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.4 * scale, 12, 10), bodyMat);
-    body.scale.set(0.9, 0.85, stretch);
-    body.position.y = 0.4 * scale;
-    group.add(body);
-
-    // Head — big relative to body
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.32 * scale, 12, 10), bodyMat);
-    head.position.set(0, 0.75 * scale, 0.25 * scale * stretch);
-    group.add(head);
+    makeSphere(
+      'body',
+      0.8 * scale,
+      bodyMat,
+      new Vector3(0, 0.4 * scale, 0),
+      new Vector3(0.9, 0.85, stretch),
+    );
+    makeSphere('head', 0.64 * scale, bodyMat, new Vector3(0, 0.75 * scale, 0.25 * scale * stretch));
 
     // Eyes
     const eyeOffset = 0.12 * scale;
     const eyeY = 0.78 * scale;
     const eyeZ = 0.25 * scale * stretch + 0.2 * scale;
     for (const side of [-1, 1]) {
-      const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.09 * scale, 8, 6), eyeWhiteMat);
-      eyeWhite.position.set(side * eyeOffset, eyeY, eyeZ);
-      group.add(eyeWhite);
-
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.045 * scale, 6, 4), pupilMat);
-      pupil.position.set(side * eyeOffset, eyeY, eyeZ + 0.06 * scale);
-      group.add(pupil);
+      makeSphere('eyeW', 0.18 * scale, eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
+      makeSphere(
+        'pupil',
+        0.09 * scale,
+        pupilMat,
+        new Vector3(side * eyeOffset, eyeY, eyeZ + 0.06 * scale),
+      );
     }
   } else {
     // Predator: sleek body, forward-leaning head
     const stretch = 0.9 + traits.speed * 0.2;
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.35 * scale, 12, 10), bodyMat);
-    body.scale.set(0.75, 0.8, stretch);
-    body.position.y = 0.4 * scale;
-    group.add(body);
-
-    // Head — slightly smaller, angular position
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.25 * scale, 10, 8), bodyMat);
-    head.scale.set(0.9, 0.85, 1.1);
-    head.position.set(0, 0.6 * scale, 0.35 * scale * stretch);
-    group.add(head);
+    makeSphere(
+      'body',
+      0.7 * scale,
+      bodyMat,
+      new Vector3(0, 0.4 * scale, 0),
+      new Vector3(0.75, 0.8, stretch),
+    );
+    makeSphere(
+      'head',
+      0.5 * scale,
+      bodyMat,
+      new Vector3(0, 0.6 * scale, 0.35 * scale * stretch),
+      new Vector3(0.9, 0.85, 1.1),
+    );
 
     // Eyes — slightly narrower
     const eyeOffset = 0.1 * scale;
     const eyeY = 0.63 * scale;
     const eyeZ = 0.35 * scale * stretch + 0.18 * scale;
     for (const side of [-1, 1]) {
-      const eyeWhite = new THREE.Mesh(new THREE.SphereGeometry(0.07 * scale, 8, 6), eyeWhiteMat);
-      eyeWhite.position.set(side * eyeOffset, eyeY, eyeZ);
-      group.add(eyeWhite);
-
-      const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.04 * scale, 6, 4), pupilMat);
-      pupil.position.set(side * eyeOffset, eyeY, eyeZ + 0.05 * scale);
-      group.add(pupil);
+      makeSphere('eyeW', 0.14 * scale, eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
+      makeSphere(
+        'pupil',
+        0.08 * scale,
+        pupilMat,
+        new Vector3(side * eyeOffset, eyeY, eyeZ + 0.05 * scale),
+      );
     }
   }
 
-  enableShadows(group);
-  return group;
+  return root;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,9 +352,9 @@ type CreatureState = 'idle' | 'walking' | 'fleeing' | 'chasing' | 'catching' | '
 export interface CreatureInstance {
   speciesId: string;
   trophicLevel: TrophicLevel;
-  mesh: THREE.Group;
-  position: THREE.Vector3;
-  targetPosition: THREE.Vector3;
+  mesh: TransformNode;
+  position: Vector3;
+  targetPosition: Vector3;
   state: CreatureState;
   stateTimer: number;
   speed: number;
@@ -219,13 +368,15 @@ export interface CreatureInstance {
 
 export class CreatureManager {
   private creatures: CreatureInstance[] = [];
-  private scene: THREE.Scene;
+  private scene: Scene;
+  private shadowGenerator: ShadowGenerator;
   private biomes: Biome[] = [];
   private gridWidth = 0;
   private gridHeight = 0;
 
-  constructor(scene: THREE.Scene) {
+  constructor(scene: Scene, shadowGenerator: ShadowGenerator) {
     this.scene = scene;
+    this.shadowGenerator = shadowGenerator;
   }
 
   /**
@@ -243,8 +394,7 @@ export class CreatureManager {
     // Remove creatures for extinct species
     const toRemove = this.creatures.filter((c) => !currentSpeciesIds.has(c.speciesId));
     for (const c of toRemove) {
-      this.scene.remove(c.mesh);
-      disposeMeshGroup(c.mesh);
+      this.disposeCreatureMesh(c.mesh);
     }
     this.creatures = this.creatures.filter((c) => currentSpeciesIds.has(c.speciesId));
 
@@ -257,7 +407,6 @@ export class CreatureManager {
         const creature = this.spawnCreature(s, i);
         if (creature) {
           this.creatures.push(creature);
-          this.scene.add(creature.mesh);
         }
       }
     }
@@ -265,22 +414,25 @@ export class CreatureManager {
 
   /**
    * Resolve a hit mesh to its owning creature's species ID.
-   * Walks up the parent chain to find a creature group.
+   * Uses mesh.metadata for direct lookup.
    */
-  getSpeciesIdByMesh(hitObject: THREE.Object3D): string | null {
-    let current: THREE.Object3D | null = hitObject;
+  getSpeciesIdByMesh(hitMesh: AbstractMesh): string | null {
+    const meta = hitMesh.metadata as { speciesId?: string } | null;
+    if (meta?.speciesId) return meta.speciesId;
+
+    // Walk up parent chain as fallback
+    let current: TransformNode | null = hitMesh.parent as TransformNode | null;
     while (current) {
-      for (const creature of this.creatures) {
-        if (creature.mesh === current) return creature.speciesId;
-      }
-      current = current.parent;
+      const parentMeta = current.metadata as { speciesId?: string } | null;
+      if (parentMeta?.speciesId) return parentMeta.speciesId;
+      current = current.parent as TransformNode | null;
     }
     return null;
   }
 
-  /** Get all creature root groups for raycasting. */
-  getAllMeshGroups(): THREE.Group[] {
-    return this.creatures.filter((c) => c.mesh.visible).map((c) => c.mesh);
+  /** Get all creature root nodes for raycasting. */
+  getAllMeshGroups(): TransformNode[] {
+    return this.creatures.filter((c) => c.mesh.isEnabled()).map((c) => c.mesh);
   }
 
   /**
@@ -296,6 +448,15 @@ export class CreatureManager {
   // Private
   // -----------------------------------------------------------------------
 
+  private disposeCreatureMesh(node: TransformNode): void {
+    const children = node.getChildMeshes();
+    for (const child of children) {
+      this.shadowGenerator.removeShadowCaster(child);
+      child.dispose(false, true);
+    }
+    node.dispose();
+  }
+
   private computeRepCount(species: Species): number {
     let totalPop = 0;
     for (const pop of Object.values(species.populationByBiome)) {
@@ -306,19 +467,22 @@ export class CreatureManager {
   }
 
   private spawnCreature(species: Species, index: number): CreatureInstance | null {
-    const mesh = buildCreatureMesh(species);
+    const mesh = buildCreatureMesh(species, this.scene, this.shadowGenerator);
     const pos = this.pickSpawnPosition(species, index);
-    if (!pos) return null;
+    if (!pos) {
+      this.disposeCreatureMesh(mesh);
+      return null;
+    }
 
     const wy = getHeightAtWorldXZ(pos.x, pos.z, this.biomes, this.gridWidth, this.gridHeight);
-    mesh.position.set(pos.x, wy, pos.z);
+    mesh.position = new Vector3(pos.x, wy, pos.z);
 
     return {
       speciesId: species.id,
       trophicLevel: species.trophicLevel,
       mesh,
-      position: new THREE.Vector3(pos.x, wy, pos.z),
-      targetPosition: new THREE.Vector3(pos.x, wy, pos.z),
+      position: new Vector3(pos.x, wy, pos.z),
+      targetPosition: new Vector3(pos.x, wy, pos.z),
       state: 'idle',
       stateTimer: Math.random() * 2,
       speed: computeSpeed(species),
@@ -365,7 +529,7 @@ export class CreatureManager {
     }
 
     // Update mesh position and rotation
-    creature.mesh.position.copy(creature.position);
+    creature.mesh.position.copyFrom(creature.position);
     creature.mesh.rotation.y = creature.facingAngle;
 
     // Gentle bob while moving
@@ -408,7 +572,7 @@ export class CreatureManager {
       const target = this.pickWanderTarget(creature);
       if (target) {
         creature.targetPosition.set(target.x, 0, target.z);
-        creature.state = creature.trophicLevel === 'producer' ? 'walking' : 'walking';
+        creature.state = 'walking';
         creature.stateTimer = 0;
       } else {
         creature.stateTimer = IDLE_MIN;
@@ -449,7 +613,6 @@ export class CreatureManager {
     const target = creature.chaseTarget;
 
     if (!target || target.state === 'hidden' || creature.stateTimer <= 0) {
-      // Give up
       creature.state = 'idle';
       creature.chaseTarget = null;
       creature.stateTimer = IDLE_MIN;
@@ -457,12 +620,11 @@ export class CreatureManager {
     }
 
     // Chase the prey
-    creature.targetPosition.copy(target.position);
+    creature.targetPosition.copyFrom(target.position);
     this.moveToward(creature, target.position, creature.speed * CHASE_SPEED_MULT, delta);
 
-    const dist = creature.position.distanceTo(target.position);
+    const dist = Vector3.Distance(creature.position, target.position);
     if (dist < CATCH_DISTANCE) {
-      // Caught!
       creature.state = 'catching';
       creature.stateTimer = 1.5;
       creature.chaseTarget = null;
@@ -470,12 +632,11 @@ export class CreatureManager {
       // Hide the prey
       target.state = 'hidden';
       target.stateTimer = RESPAWN_DELAY;
-      target.mesh.visible = false;
+      target.mesh.setEnabled(false);
     }
   }
 
   private updateCatching(creature: CreatureInstance, delta: number): void {
-    // Eating animation — just idle in place
     creature.stateTimer -= delta;
     if (creature.stateTimer <= 0) {
       creature.state = 'idle';
@@ -486,26 +647,23 @@ export class CreatureManager {
   private updateHidden(creature: CreatureInstance, delta: number): void {
     creature.stateTimer -= delta;
     if (creature.stateTimer <= 0) {
-      // Respawn at a random position
       const pos = this.pickRandomHabitablePosition();
       if (pos) {
         const wy = getHeightAtWorldXZ(pos.x, pos.z, this.biomes, this.gridWidth, this.gridHeight);
         creature.position.set(pos.x, wy, pos.z);
       }
-      creature.mesh.visible = true;
+      creature.mesh.setEnabled(true);
       creature.state = 'idle';
       creature.stateTimer = IDLE_MIN;
     }
   }
 
   private startFleeing(creature: CreatureInstance, predator: CreatureInstance): void {
-    // Flee away from the predator
     const dx = creature.position.x - predator.position.x;
     const dz = creature.position.z - predator.position.z;
     const dist = Math.sqrt(dx * dx + dz * dz) || 1;
     const bounds = getWorldBounds(this.gridWidth, this.gridHeight);
 
-    // Try fleeing directly away; if uninhabitable, try shorter distances
     for (let scale = 1.0; scale >= 0.3; scale -= 0.2) {
       const fleeX = creature.position.x + (dx / dist) * WANDER_RADIUS * scale;
       const fleeZ = creature.position.z + (dz / dist) * WANDER_RADIUS * scale;
@@ -520,14 +678,13 @@ export class CreatureManager {
       }
     }
 
-    // No habitable flee target — stay put and hope for the best
     creature.state = 'idle';
     creature.stateTimer = IDLE_MIN;
   }
 
   private moveToward(
     creature: CreatureInstance,
-    target: THREE.Vector3,
+    target: Vector3,
     speed: number,
     delta: number,
   ): boolean {
@@ -537,23 +694,19 @@ export class CreatureManager {
 
     if (dist < 0.5) return true;
 
-    // Face direction
     creature.facingAngle = Math.atan2(dx, dz);
 
-    // Move
     const step = Math.min(speed * delta, dist);
     const nextX = creature.position.x + (dx / dist) * step;
     const nextZ = creature.position.z + (dz / dist) * step;
 
-    // Reject move into uninhabitable terrain (ocean, mountain)
     if (!isPositionHabitable(nextX, nextZ, this.biomes, this.gridWidth, this.gridHeight)) {
-      return true; // treat as arrived — stop and go idle
+      return true;
     }
 
     creature.position.x = nextX;
     creature.position.z = nextZ;
 
-    // Follow terrain
     creature.position.y = getHeightAtWorldXZ(
       creature.position.x,
       creature.position.z,
@@ -577,7 +730,7 @@ export class CreatureManager {
       if (other === creature || other.trophicLevel !== trophicLevel) continue;
       if (other.state === 'hidden') continue;
 
-      const dist = creature.position.distanceTo(other.position);
+      const dist = Vector3.Distance(creature.position, other.position);
       if (dist < closestDist) {
         closest = other;
         closestDist = dist;
@@ -596,11 +749,9 @@ export class CreatureManager {
       const tx = creature.position.x + Math.cos(angle) * dist;
       const tz = creature.position.z + Math.sin(angle) * dist;
 
-      // Check bounds
       if (tx < bounds.minX + 1 || tx > bounds.maxX - 1) continue;
       if (tz < bounds.minZ + 1 || tz > bounds.maxZ - 1) continue;
 
-      // Check habitable
       if (!isPositionHabitable(tx, tz, this.biomes, this.gridWidth, this.gridHeight)) continue;
 
       return { x: tx, z: tz };
@@ -623,22 +774,4 @@ export class CreatureManager {
 
     return null;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Cleanup helper
-// ---------------------------------------------------------------------------
-
-function disposeMeshGroup(group: THREE.Group): void {
-  group.traverse((obj) => {
-    if (obj instanceof THREE.Mesh) {
-      (obj.geometry as THREE.BufferGeometry).dispose();
-      const mat = obj.material as THREE.Material | THREE.Material[];
-      if (Array.isArray(mat)) {
-        for (const m of mat) m.dispose();
-      } else {
-        mat.dispose();
-      }
-    }
-  });
 }

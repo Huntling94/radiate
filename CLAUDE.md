@@ -144,3 +144,4 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 | F-014 | 3D visual polish: sky dome, PBR shading, shadows | v0.2 | Complete |
 | F-015 | Click-to-select creatures in 3D view | v0.2 | Complete |
 | F-016 | Terrain sculpting (elevation/moisture tools) | v0.2 | Complete |
+| F-017 | Three.js → Babylon.js migration (DDR-012) | v0.2→v0.3 | Complete |
