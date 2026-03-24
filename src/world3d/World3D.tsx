@@ -3,7 +3,7 @@
  * Manages canvas lifecycle, resize, creature lifecycle, interaction, and render loop.
  */
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import type { WorldState } from '../engine/index.ts';
 import type { SculptAction } from '../engine/index.ts';
 import { generateTerrain, getHeightAtWorldXZ } from './terrain.ts';
@@ -162,7 +162,15 @@ export function World3D({
     };
   }, []);
 
-  // Update terrain when biomes change
+  // Stable biome fingerprint — only changes when elevation/moisture/type actually change
+  // (tick() creates a new biomes array every tick even if values are identical)
+  const biomeFingerprint = useMemo(() => {
+    return worldState.biomes
+      .map((b) => `${b.id}:${b.elevation.toFixed(4)}:${b.moisture.toFixed(4)}:${b.biomeType}`)
+      .join('|');
+  }, [worldState.biomes]);
+
+  // Update terrain when biomes actually change (not just reference)
   useEffect(() => {
     if (!ctxRef.current) return;
 
@@ -172,7 +180,8 @@ export function World3D({
       worldState.config.gridHeight,
     );
     updateTerrainMesh(ctxRef.current, data);
-  }, [worldState.biomes, worldState.config.gridWidth, worldState.config.gridHeight]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [biomeFingerprint, worldState.config.gridWidth, worldState.config.gridHeight]);
 
   // Sync creatures with species
   useEffect(() => {
@@ -193,7 +202,7 @@ export function World3D({
 
   return (
     <div ref={containerRef} className="absolute inset-0">
-      <canvas ref={canvasRef} className="h-full w-full" />
+      <canvas ref={canvasRef} className="h-full w-full" style={{ touchAction: 'none' }} />
     </div>
   );
 }

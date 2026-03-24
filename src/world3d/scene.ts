@@ -121,7 +121,7 @@ function createSkyDome(scene: Scene): Mesh {
 // ---------------------------------------------------------------------------
 
 export function createScene(canvas: HTMLCanvasElement): SceneContext {
-  const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+  const engine = new Engine(canvas, true, { stencil: true });
 
   // Cap pixel ratio to 2x for mobile performance
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
@@ -216,7 +216,7 @@ export function updateTerrainMesh(ctx: SceneContext, data: TerrainData): void {
   terrainMaterial.albedoColor = new Color3(1, 1, 1); // tint multiplier — white preserves vertex colours
   terrainMaterial.roughness = 0.85;
   terrainMaterial.metallic = 0;
-  terrainMaterial.backFaceCulling = true;
+  terrainMaterial.backFaceCulling = false;
   terrainMesh.material = terrainMaterial;
   terrainMesh.receiveShadows = true;
   ctx.terrainMesh = terrainMesh;
