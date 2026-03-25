@@ -149,3 +149,4 @@ v0.2 "Naturalist" is complete (Sessions 2–3). v0.1 "First Life" is complete (S
 | F-018 | Biome energy production + dynamic producer K | v0.2 | Complete |
 | F-019 | Trophic energy transfer + consumer K | v0.2 | Complete |
 | F-020 | IBM engine — individual creatures replace L-V equations | v0.3 | Complete |
+| F-021 | Evolved creature morphology — allometry, appendages, producer variants, personality | v0.3 | Complete |
