@@ -180,5 +180,9 @@ export function createInitialState(seed: number): WorldState {
     config,
     rngState: rng.getState(),
     events: [],
+    // IBM fields — empty until IBM engine takes over
+    creatures: [],
+    speciesClusters: [],
+    nextCreatureId: 0,
   };
 }

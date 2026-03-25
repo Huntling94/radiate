@@ -7,7 +7,7 @@
  * BRF-016: IBM Engine Core
  */
 
-import type { Biome, TrophicLevel, Traits, SimConfig } from './types.ts';
+import type { Biome, Traits, SimConfig, Creature } from './types.ts';
 import { expressTraits } from './types.ts';
 import { mutateGenome } from './genome.ts';
 import { computeBiomeEnergy } from './energy.ts';
@@ -48,31 +48,8 @@ import {
   PRODUCER_SPAWN_RADIUS,
 } from './constants.ts';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type CreatureState = 'idle' | 'foraging' | 'fleeing' | 'hunting' | 'reproducing';
-
-export interface Creature {
-  readonly id: string;
-  genome: number[];
-  /** World x position. Top-level for SpatialEntry compatibility. */
-  x: number;
-  /** World z position. Top-level for SpatialEntry compatibility. */
-  z: number;
-  energy: number;
-  age: number;
-  state: CreatureState;
-  readonly trophicLevel: TrophicLevel;
-  readonly parentId: string | null;
-  readonly generation: number;
-  speciesClusterId: string;
-  /** Ticks remaining in current flee/chase state. */
-  stateTimer: number;
-  /** Current movement target, if any. */
-  target: { x: number; z: number } | null;
-}
+// Re-export Creature type from types.ts for convenience
+export type { Creature } from './types.ts';
 
 /** Result of processing one creature's tick. */
 export interface CreatureTickResult {
@@ -296,7 +273,7 @@ export function producerTick(
   config: SimConfig,
   gridWidth: number,
   gridHeight: number,
-  deaths: ReadonlySet<string>,
+  _deaths: ReadonlySet<string>,
   nextId: () => string,
 ): CreatureTickResult {
   const traits = expressTraits(creature.genome);
@@ -370,7 +347,7 @@ export function herbivoreTick(
   creature: Creature,
   hash: SpatialHash<Creature>,
   biomes: readonly Biome[],
-  temperature: number,
+  _temperature: number,
   rng: Rng,
   config: SimConfig,
   gridWidth: number,
@@ -491,7 +468,7 @@ export function predatorTick(
   creature: Creature,
   hash: SpatialHash<Creature>,
   biomes: readonly Biome[],
-  temperature: number,
+  _temperature: number,
   rng: Rng,
   config: SimConfig,
   gridWidth: number,

@@ -32,6 +32,14 @@ export interface WorldState {
   rngState: RngState;
   /** Recent simulation events with causal attribution (capped at MAX_EVENTS) */
   events: SimEvent[];
+
+  // --- IBM fields (BRF-016) ---
+  /** All individual creatures in the simulation (IBM engine). */
+  creatures: Creature[];
+  /** Species derived from genome clustering (IBM engine). */
+  speciesClusters: SpeciesCluster[];
+  /** Monotonic ID counter for creature/cluster creation. */
+  nextCreatureId: number;
 }
 
 export const MAX_EVENTS = 200;
@@ -127,6 +135,8 @@ export interface SimConfig {
   gridWidth: number;
   /** Biome grid height (rows) */
   gridHeight: number;
+  /** Ticks between genome clustering runs (IBM engine). */
+  clusteringInterval?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -190,6 +200,42 @@ export function expressTraits(genome: number[]): Traits {
     metabolism: genome[4] ?? 0,
     reproductionRate: genome[5] ?? 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// IBM types (BRF-016)
+// ---------------------------------------------------------------------------
+
+export type CreatureState = 'idle' | 'foraging' | 'fleeing' | 'hunting' | 'reproducing';
+
+export interface Creature {
+  readonly id: string;
+  genome: number[];
+  x: number;
+  z: number;
+  energy: number;
+  age: number;
+  state: CreatureState;
+  readonly trophicLevel: TrophicLevel;
+  readonly parentId: string | null;
+  readonly generation: number;
+  speciesClusterId: string;
+  stateTimer: number;
+  target: { x: number; z: number } | null;
+}
+
+export interface SpeciesCluster {
+  readonly id: string;
+  name: string;
+  genome: number[];
+  originalGenome: number[];
+  populationByBiome: Record<string, number>;
+  trophicLevel: TrophicLevel;
+  parentSpeciesId: string | null;
+  originTick: number;
+  generation: number;
+  memberCount: number;
+  color: string;
 }
 
 // ---------------------------------------------------------------------------

@@ -7,31 +7,14 @@
  * BRF-016: IBM Engine Core
  */
 
-import type { Biome, TrophicLevel } from './types.ts';
+import type { Biome, TrophicLevel, Creature, SpeciesCluster } from './types.ts';
 import { geneticDistance } from './genome.ts';
 import { generateSpeciesName } from './names.ts';
 import type { Rng } from './rng.ts';
 import { worldXZToBiomeCoords } from './spatial-utils.ts';
 import { CLUSTERING_DISTANCE_THRESHOLD, MIN_CLUSTER_SIZE } from './constants.ts';
-import type { Creature } from './creature.ts';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export interface SpeciesCluster {
-  readonly id: string;
-  name: string;
-  genome: number[]; // centroid genome
-  originalGenome: number[]; // genome at cluster creation
-  populationByBiome: Record<string, number>;
-  trophicLevel: TrophicLevel;
-  parentSpeciesId: string | null;
-  originTick: number;
-  generation: number;
-  memberCount: number;
-  color: string;
-}
+// Re-export SpeciesCluster for convenience
+export type { SpeciesCluster } from './types.ts';
 
 // ---------------------------------------------------------------------------
 // Clustering algorithm
