@@ -113,9 +113,9 @@ The engine/component boundary is enforced at lint time via ESLint's `no-restrict
 
 ## Current phase
 
-**v0.2 "Naturalist"** — UI overhaul, phylogenetic tree, species cards/bestiary, event log with causal attribution, species share codes, image export.
+**v0.3 "Living World"** — IBM engine complete (Session 4). Remaining: Web Worker fast-forward, direct IBM creature rendering, edge-of-chaos regulator, species share codes.
 
-v0.1 "First Life" is complete (Session 1, 2026-03-22).
+v0.2 "Naturalist" is complete (Sessions 2–3). v0.1 "First Life" is complete (Session 1, 2026-03-22).
 
 ## Lessons learned
 
@@ -123,6 +123,7 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 |---|--------|-----------|-----------------|
 | 1 | Adding fields to WorldState breaks saved games | Old localStorage saves lack new fields, causing TypeError on load | Always add migration logic in `loadWorld()` when adding fields to WorldState. Test with a save from the previous format. |
 | 2 | `tsc --noEmit` passes but `tsc -b` (build mode) fails | Build mode uses project references and stricter checking. Type casts that pass `--noEmit` can fail in `-b` mode. | Run `npm run build` (which uses `tsc -b`) before declaring work complete, not just `tsc --noEmit`. |
+| 3 | v1 saves cannot migrate to IBM engine | L-V population counts have no spatial information; IBM needs individual creature positions, genomes, energy. No meaningful conversion path. | When a major engine replacement changes the WorldState shape fundamentally (not just adding fields), version-bump the save format and fall back to clean restart. |
 
 ## Feature registry
 
@@ -145,3 +146,6 @@ v0.1 "First Life" is complete (Session 1, 2026-03-22).
 | F-015 | Click-to-select creatures in 3D view | v0.2 | Complete |
 | F-016 | Terrain sculpting (elevation/moisture tools) | v0.2 | Complete |
 | F-017 | Three.js → Babylon.js migration (DDR-012) | v0.2→v0.3 | Complete |
+| F-018 | Biome energy production + dynamic producer K | v0.2 | Complete |
+| F-019 | Trophic energy transfer + consumer K | v0.2 | Complete |
+| F-020 | IBM engine — individual creatures replace L-V equations | v0.3 | Complete |
