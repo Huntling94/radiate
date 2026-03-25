@@ -10,7 +10,7 @@ import { PhylogeneticTree } from './components/PhylogeneticTree.tsx';
 import { SculptToolbar } from './components/SculptToolbar.tsx';
 import { World3D } from './world3d/World3D.tsx';
 import type { SculptTool } from './world3d/interaction.ts';
-import type { Species } from './engine/index.ts';
+import type { SpeciesCluster } from './engine/index.ts';
 
 type PanelTab = 'events' | 'chart' | 'tree';
 
@@ -82,7 +82,7 @@ export function App() {
       : null;
 
   // Look up selected species from living (with population) or extinct (with 0 population)
-  const selectedSpecies: (Species & { totalPopulation: number }) | null = resolvedSelectedId
+  const selectedSpecies: (SpeciesCluster & { totalPopulation: number }) | null = resolvedSelectedId
     ? (speciesWithPopulation.find((s) => s.id === resolvedSelectedId) ??
       (() => {
         const ext = worldState.extinctSpecies.find((s) => s.id === resolvedSelectedId);

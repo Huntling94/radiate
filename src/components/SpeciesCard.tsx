@@ -1,4 +1,4 @@
-import type { Species, ExtinctSpecies, Biome, SimEvent, Traits } from '../engine/index.ts';
+import type { SpeciesCluster, ExtinctSpecies, Biome, SimEvent, Traits } from '../engine/index.ts';
 import { TRAIT_REGISTRY, expressTraits } from '../engine/index.ts';
 
 // ---------------------------------------------------------------------------
@@ -6,8 +6,8 @@ import { TRAIT_REGISTRY, expressTraits } from '../engine/index.ts';
 // ---------------------------------------------------------------------------
 
 interface SpeciesCardProps {
-  species: Species & { totalPopulation: number };
-  allSpecies: Species[];
+  species: SpeciesCluster & { totalPopulation: number };
+  allSpecies: SpeciesCluster[];
   extinctSpecies: ExtinctSpecies[];
   biomes: Biome[];
   events: SimEvent[];
@@ -66,20 +66,20 @@ interface LineageEntry {
 }
 
 function resolveLineage(
-  species: Species,
-  allSpecies: Species[],
+  species: SpeciesCluster,
+  allSpecies: SpeciesCluster[],
   extinctSpecies: ExtinctSpecies[],
 ): LineageEntry[] {
   const chain: LineageEntry[] = [];
   const aliveMap = new Map(allSpecies.map((s) => [s.id, s]));
   const extinctMap = new Map(extinctSpecies.map((s) => [s.id, s]));
 
-  let current: Species | undefined = species;
+  let current: SpeciesCluster | ExtinctSpecies | undefined = species;
   while (current) {
     const isAlive = aliveMap.has(current.id);
     chain.unshift({ id: current.id, name: current.name, alive: isAlive });
     if (current.parentSpeciesId) {
-      const parent: Species | undefined =
+      const parent: SpeciesCluster | ExtinctSpecies | undefined =
         aliveMap.get(current.parentSpeciesId) ?? extinctMap.get(current.parentSpeciesId);
       if (parent) {
         current = parent;
@@ -155,7 +155,7 @@ function BiomeDistribution({
   gridWidth,
   trophicLevel,
 }: {
-  species: Species;
+  species: SpeciesCluster;
   biomes: Biome[];
   gridWidth: number;
   trophicLevel: string;

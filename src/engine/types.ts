@@ -20,8 +20,8 @@ export interface WorldState {
   temperature: number;
   /** All biomes in the world (flat array, see ADR-001) */
   biomes: Biome[];
-  /** All currently living species */
-  species: Species[];
+  /** All currently living species (SpeciesCluster in IBM; structurally compatible with Species). */
+  species: SpeciesCluster[];
   /** Archive of all species that have gone extinct */
   extinctSpecies: ExtinctSpecies[];
   /** Running count of species that have gone extinct */
@@ -90,7 +90,7 @@ export interface Biome {
 
 export type TrophicLevel = 'producer' | 'herbivore' | 'predator';
 
-export interface ExtinctSpecies extends Species {
+export interface ExtinctSpecies extends SpeciesCluster {
   /** Tick when this species went extinct */
   extinctionTick: number;
 }

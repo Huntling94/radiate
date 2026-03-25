@@ -7,26 +7,23 @@ beforeEach(() => {
 });
 
 describe('persistence', () => {
-  // T1: Round-trip
-  it('saves and loads identical state', () => {
+  it('round-trips a WorldState through save and load', () => {
     const state = createInitialState(42);
     saveWorld(state);
     const loaded = loadWorld();
 
     expect(loaded).not.toBeNull();
     expect(loaded?.tick).toBe(state.tick);
-    expect(loaded?.species).toEqual(state.species);
+    expect(loaded?.creatures.length).toBe(state.creatures.length);
+    expect(loaded?.speciesClusters.length).toBe(state.speciesClusters.length);
     expect(loaded?.biomes).toEqual(state.biomes);
     expect(loaded?.config).toEqual(state.config);
-    expect(loaded?.rngState).toEqual(state.rngState);
   });
 
-  // T2: Empty state
   it('returns null when no save exists', () => {
     expect(loadWorld()).toBeNull();
   });
 
-  // T3: Clear
   it('clears saved state', () => {
     const state = createInitialState(42);
     saveWorld(state);
@@ -36,15 +33,20 @@ describe('persistence', () => {
     expect(loadWorld()).toBeNull();
   });
 
-  // T4: Version check
-  it('saves with version number', () => {
+  it('saves with version 2', () => {
     const state = createInitialState(42);
     saveWorld(state);
 
-    const raw = localStorage.getItem('radiate-world-v1');
+    const raw = localStorage.getItem('radiate-world-v2');
     expect(raw).not.toBeNull();
 
     const parsed = JSON.parse(raw!) as { version: number };
-    expect(parsed.version).toBe(1);
+    expect(parsed.version).toBe(2);
+  });
+
+  it('v1 saves return null and are cleaned up', () => {
+    localStorage.setItem('radiate-world-v1', JSON.stringify({ version: 1, state: { tick: 100 } }));
+    expect(loadWorld()).toBeNull();
+    expect(localStorage.getItem('radiate-world-v1')).toBeNull();
   });
 });

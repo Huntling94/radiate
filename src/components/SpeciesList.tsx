@@ -1,8 +1,8 @@
-import type { Species } from '../engine/index.ts';
+import type { SpeciesCluster } from '../engine/index.ts';
 import { TRAIT_REGISTRY, expressTraits } from '../engine/index.ts';
 
 interface SpeciesListProps {
-  species: Array<Species & { totalPopulation: number }>;
+  species: Array<SpeciesCluster & { totalPopulation: number }>;
   extinctCount: number;
   onSelectSpecies: (id: string) => void;
 }

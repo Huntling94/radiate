@@ -11,6 +11,9 @@ export type {
   Traits,
   SimEvent,
   SimEventType,
+  Creature,
+  CreatureState,
+  SpeciesCluster,
 } from './types.ts';
 
 export {
@@ -29,14 +32,10 @@ export { deriveBiomeType, BIOME_COLOURS, isHabitable } from './biome.ts';
 
 export { createInitialState } from './factory.ts';
 
-export { tick } from './tick.ts';
-
-export type { InteractionMatrix } from './interactions.ts';
-export { computeInteractionMatrix, computePairInteraction } from './interactions.ts';
+// IBM engine replaces L-V tick
+export { ibmTick as tick } from './ibm-tick.ts';
 
 export { mutateGenome, geneticDistance, clampGenome } from './genome.ts';
-
-export { checkSpeciation } from './speciation.ts';
 
 export { computeFitnessModifier, updateBiomeTypes } from './environment.ts';
 
@@ -50,7 +49,17 @@ export {
   temperatureFactor,
   computeBiomeEnergy,
   computeProducerK,
-  metabolismKModifier,
-  computeHerbivoreK,
-  computePredatorK,
 } from './energy.ts';
+
+export { computeLifespan, metabolismCost } from './creature.ts';
+export { clusterCreatures, computeCentroid } from './clustering.ts';
+export { createSpatialHash } from './spatial-hash.ts';
+export {
+  biomeToWorldXZ,
+  worldXZToBiomeCoords,
+  getWorldBounds,
+  getHeightAtWorldXZ,
+  isPositionHabitable as isPositionHabitableEngine,
+  getBiomeAtWorldXZ,
+  CELL_SIZE as ENGINE_CELL_SIZE,
+} from './spatial-utils.ts';

@@ -6,8 +6,7 @@
  * Phase 2 (BRF-014): Consumer K from trophic transfer.
  */
 
-import type { Biome, BiomeType, Species, TrophicLevel } from './types.ts';
-import { expressTraits } from './types.ts';
+import type { Biome, BiomeType } from './types.ts';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -34,12 +33,6 @@ const TEMPERATURE_FLOOR = 0.1;
 
 /** Minimum moisture contribution — even dry biomes produce some energy. */
 const MOISTURE_BASE = 0.5;
-
-/** Fraction of energy transferred between trophic levels (Lindeman's rule). */
-const TRANSFER_EFFICIENCY = 0.1;
-
-/** Minimum consumer K in habitable biomes — prevents instant death spirals. */
-const MIN_CONSUMER_K = 5;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -71,67 +64,6 @@ export function computeProducerK(biome: Biome, temperature: number): number {
   return computeBiomeEnergy(biome, temperature);
 }
 
-// ---------------------------------------------------------------------------
-// Consumer carrying capacity (BRF-014)
-// ---------------------------------------------------------------------------
-
-/**
- * Metabolism-based K modifier for consumers.
- * High metabolism → lower K (each individual needs more energy).
- * Low metabolism → higher K (more efficient, fewer calories per individual).
- */
-export function metabolismKModifier(species: Species): number {
-  const traits = expressTraits(species.genome);
-  return 1.0 / (0.5 + traits.metabolism * 0.5);
-}
-
-/**
- * Sum total population of a given trophic level in a specific biome.
- */
-function sumTrophicPopInBiome(
-  biomeId: string,
-  trophicLevel: TrophicLevel,
-  biomePopulations: Map<string, number[]>,
-  allSpecies: readonly Species[],
-): number {
-  const pops = biomePopulations.get(biomeId);
-  if (!pops) return 0;
-
-  let total = 0;
-  for (let i = 0; i < allSpecies.length; i++) {
-    if (allSpecies[i].trophicLevel === trophicLevel) {
-      total += pops[i] ?? 0;
-    }
-  }
-  return total;
-}
-
-/**
- * Compute carrying capacity for a herbivore species in a biome.
- * Derived from total producer biomass × transfer efficiency × metabolism modifier.
- */
-export function computeHerbivoreK(
-  biomeId: string,
-  species: Species,
-  biomePopulations: Map<string, number[]>,
-  allSpecies: readonly Species[],
-): number {
-  const producerBiomass = sumTrophicPopInBiome(biomeId, 'producer', biomePopulations, allSpecies);
-  const k = producerBiomass * TRANSFER_EFFICIENCY * metabolismKModifier(species);
-  return Math.max(MIN_CONSUMER_K, k);
-}
-
-/**
- * Compute carrying capacity for a predator species in a biome.
- * Derived from total herbivore biomass × transfer efficiency × metabolism modifier.
- */
-export function computePredatorK(
-  biomeId: string,
-  species: Species,
-  biomePopulations: Map<string, number[]>,
-  allSpecies: readonly Species[],
-): number {
-  const herbivoreBiomass = sumTrophicPopInBiome(biomeId, 'herbivore', biomePopulations, allSpecies);
-  const k = herbivoreBiomass * TRANSFER_EFFICIENCY * metabolismKModifier(species);
-  return Math.max(MIN_CONSUMER_K, k);
-}
+// Consumer carrying capacity (BRF-014) has been removed.
+// In the IBM engine, consumer K emerges from individual energy budgets and
+// predator-prey encounters, not from trophic transfer equations.

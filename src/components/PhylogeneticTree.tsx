@@ -1,13 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import type { Species, ExtinctSpecies } from '../engine/index.ts';
-import { getTotalPopulation } from '../engine/index.ts';
+import type { SpeciesCluster, ExtinctSpecies } from '../engine/index.ts';
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
 
 interface PhylogeneticTreeProps {
-  species: Species[];
+  species: SpeciesCluster[];
   extinctSpecies: ExtinctSpecies[];
   currentTick: number;
   selectedSpeciesId: string | null;
@@ -19,7 +18,7 @@ interface PhylogeneticTreeProps {
 // ---------------------------------------------------------------------------
 
 interface TreeNode {
-  species: Species;
+  species: SpeciesCluster;
   isExtinct: boolean;
   extinctionTick: number | null;
   startTick: number;
@@ -47,12 +46,12 @@ const BG_COLOUR = '#0a0a0a'; // neutral-950
 // ---------------------------------------------------------------------------
 
 function buildTree(
-  allSpecies: Species[],
+  allSpecies: SpeciesCluster[],
   extinctSpecies: ExtinctSpecies[],
   currentTick: number,
 ): TreeNode[] {
   // Combine all species into a lookup
-  const speciesMap = new Map<string, Species>();
+  const speciesMap = new Map<string, SpeciesCluster>();
   const extinctSet = new Set<string>();
   const extinctionTicks = new Map<string, number>();
 
@@ -66,7 +65,7 @@ function buildTree(
   }
 
   // Build children map
-  const childrenMap = new Map<string, Species[]>();
+  const childrenMap = new Map<string, SpeciesCluster[]>();
   for (const s of speciesMap.values()) {
     if (s.parentSpeciesId) {
       const siblings = childrenMap.get(s.parentSpeciesId) ?? [];
@@ -85,7 +84,7 @@ function buildTree(
   roots.sort((a, b) => a.originTick - b.originTick);
 
   // DFS to build TreeNode hierarchy
-  function buildNode(species: Species): TreeNode {
+  function buildNode(species: SpeciesCluster): TreeNode {
     const isExtinct = extinctSet.has(species.id);
     const extTick = extinctionTicks.get(species.id) ?? null;
     const childSpecies = childrenMap.get(species.id) ?? [];
@@ -461,7 +460,7 @@ export function PhylogeneticTree({
             </div>
           ) : (
             <div className="text-neutral-400">
-              Pop: {Math.round(getTotalPopulation(tooltip.node.species)).toLocaleString()} · Age{' '}
+              Pop: {tooltip.node.species.memberCount.toLocaleString()} · Age{' '}
               {String(currentTick - tooltip.node.startTick)} ticks
             </div>
           )}

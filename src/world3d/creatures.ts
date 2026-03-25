@@ -14,7 +14,7 @@ import {
   Mesh,
 } from '@babylonjs/core';
 import type { Scene, ShadowGenerator, AbstractMesh } from '@babylonjs/core';
-import type { Species, TrophicLevel, Biome } from '../engine/index.ts';
+import type { SpeciesCluster, TrophicLevel, Biome } from '../engine/index.ts';
 import { expressTraits } from '../engine/index.ts';
 import {
   getHeightAtWorldXZ,
@@ -157,7 +157,7 @@ function hashString(s: string): number {
 // Creature appearance
 // ---------------------------------------------------------------------------
 
-function computeColour(species: Species): Color3 {
+function computeColour(species: SpeciesCluster): Color3 {
   const traits = expressTraits(species.genome);
   const baseHue = TROPHIC_HUE[species.trophicLevel];
   const hueShift = (traits.heatTolerance - traits.coldTolerance) * 15;
@@ -168,12 +168,12 @@ function computeColour(species: Species): Color3 {
   return hslToColor3(hue, saturation, lightness);
 }
 
-function computeScale(species: Species): number {
+function computeScale(species: SpeciesCluster): number {
   const traits = expressTraits(species.genome);
   return 0.4 + traits.size * 0.4;
 }
 
-function computeSpeed(species: Species): number {
+function computeSpeed(species: SpeciesCluster): number {
   const traits = expressTraits(species.genome);
   return BASE_MOVE_SPEED * (0.5 + traits.speed * 0.5);
 }
@@ -200,7 +200,7 @@ function createToonMaterial(name: string, colour: Color3, scene: Scene): ShaderM
 // ---------------------------------------------------------------------------
 
 function buildCreatureMesh(
-  species: Species,
+  species: SpeciesCluster,
   scene: Scene,
   shadowGenerator: ShadowGenerator,
 ): TransformNode {
@@ -383,7 +383,12 @@ export class CreatureManager {
    * Sync creature instances with the current species list.
    * Adds creatures for new species, removes for extinct.
    */
-  syncSpecies(species: Species[], biomes: Biome[], gridWidth: number, gridHeight: number): void {
+  syncSpecies(
+    species: readonly SpeciesCluster[],
+    biomes: Biome[],
+    gridWidth: number,
+    gridHeight: number,
+  ): void {
     this.biomes = biomes;
     this.gridWidth = gridWidth;
     this.gridHeight = gridHeight;
@@ -457,7 +462,7 @@ export class CreatureManager {
     node.dispose();
   }
 
-  private computeRepCount(species: Species): number {
+  private computeRepCount(species: SpeciesCluster): number {
     let totalPop = 0;
     for (const pop of Object.values(species.populationByBiome)) {
       totalPop += pop;
@@ -466,7 +471,7 @@ export class CreatureManager {
     return Math.min(8, Math.max(3, Math.floor(Math.log10(totalPop + 1))));
   }
 
-  private spawnCreature(species: Species, index: number): CreatureInstance | null {
+  private spawnCreature(species: SpeciesCluster, index: number): CreatureInstance | null {
     const mesh = buildCreatureMesh(species, this.scene, this.shadowGenerator);
     const pos = this.pickSpawnPosition(species, index);
     if (!pos) {
@@ -491,7 +496,10 @@ export class CreatureManager {
     };
   }
 
-  private pickSpawnPosition(species: Species, index: number): { x: number; z: number } | null {
+  private pickSpawnPosition(
+    species: SpeciesCluster,
+    index: number,
+  ): { x: number; z: number } | null {
     // Pick a populated biome and scatter within it
     const populatedBiomes = this.biomes.filter((b) => (species.populationByBiome[b.id] ?? 0) > 0);
     if (populatedBiomes.length === 0) return null;

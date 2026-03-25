@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { WorldState, Species, SculptAction } from '../engine/index.ts';
-import { createInitialState, tick, getTotalPopulation, applySculpt } from '../engine/index.ts';
+import type { WorldState, SpeciesCluster, SculptAction } from '../engine/index.ts';
+import { createInitialState, tick, applySculpt } from '../engine/index.ts';
 import { saveWorld, loadWorld, clearWorld } from '../data/persistence.ts';
 
 // ---------------------------------------------------------------------------
@@ -22,9 +22,9 @@ const TICK_INTERVALS: Record<TickSpeed, number> = { 0.5: 2000, 1: 1000, 2: 500, 
 function takeSnapshot(state: WorldState): PopulationSnapshot {
   const populations: Record<string, number> = {};
   const names: Record<string, string> = {};
-  for (const species of state.species) {
-    populations[species.id] = getTotalPopulation(species);
-    names[species.id] = species.name;
+  for (const cluster of state.speciesClusters) {
+    populations[cluster.id] = cluster.memberCount;
+    names[cluster.id] = cluster.name;
   }
   return { tick: state.tick, populations, names };
 }
@@ -45,7 +45,7 @@ function initializeState(seed: number): { state: WorldState; welcome: string | n
   if (elapsed <= 2) return { state: saved, welcome: null };
 
   const catchUp = tick(saved, elapsed);
-  const newSpecies = catchUp.species.length - saved.species.length;
+  const newSpecies = catchUp.speciesClusters.length - saved.speciesClusters.length;
   const extinctions = catchUp.extinctSpeciesCount - saved.extinctSpeciesCount;
 
   let msg = `Welcome back! ${formatElapsed(elapsed)} elapsed.`;
@@ -62,7 +62,7 @@ function initializeState(seed: number): { state: WorldState; welcome: string | n
 export interface SimulationControls {
   worldState: WorldState;
   populationHistory: PopulationSnapshot[];
-  speciesWithPopulation: Array<Species & { totalPopulation: number }>;
+  speciesWithPopulation: Array<SpeciesCluster & { totalPopulation: number }>;
   isPaused: boolean;
   welcomeMessage: string | null;
   tickSpeed: TickSpeed;
@@ -172,9 +172,9 @@ export function useSimulation(seed = 42): SimulationControls {
     setWelcomeMessage(null);
   }, []);
 
-  const speciesWithPopulation = worldState.species.map((s) => ({
-    ...s,
-    totalPopulation: getTotalPopulation(s),
+  const speciesWithPopulation = worldState.speciesClusters.map((c) => ({
+    ...c,
+    totalPopulation: c.memberCount,
   }));
 
   return {
