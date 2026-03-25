@@ -154,15 +154,15 @@ function hashString(s: string): number {
 }
 
 // ---------------------------------------------------------------------------
-// Creature appearance
+// Creature appearance — trait-to-morphology mapping (BRF-017)
 // ---------------------------------------------------------------------------
 
-function computeColour(species: SpeciesCluster): Color3 {
+function computeColour(species: SpeciesCluster, hueJitter = 0): Color3 {
   const traits = expressTraits(species.genome);
   const baseHue = TROPHIC_HUE[species.trophicLevel];
   const hueShift = (traits.heatTolerance - traits.coldTolerance) * 15;
   const speciesHueOffset = (hashString(species.id) % 30) - 15;
-  const hue = (((baseHue + hueShift + speciesHueOffset) % 360) + 360) % 360;
+  const hue = (((baseHue + hueShift + speciesHueOffset + hueJitter) % 360) + 360) % 360;
   const saturation = 0.5 + Math.min(0.4, traits.metabolism * 0.2);
   const lightness = 0.4 + Math.min(0.2, traits.size * 0.08);
   return hslToColor3(hue, saturation, lightness);
@@ -178,6 +178,35 @@ function computeSpeed(species: SpeciesCluster): number {
   return BASE_MOVE_SPEED * (0.5 + traits.speed * 0.5);
 }
 
+/** Allometric head scaling: small creatures get proportionally larger heads. */
+function computeHeadRatio(size: number): number {
+  return Math.max(0.5, Math.min(0.65, 0.7 - size * 0.1));
+}
+
+/** Speed-driven body aspect: fast = narrow+long, slow = round. */
+function computeBodyAspect(speed: number): { xScale: number; zScale: number } {
+  return {
+    xScale: Math.max(0.6, 1.0 - speed * 0.1),
+    zScale: 0.8 + speed * 0.2,
+  };
+}
+
+/** Metabolism-driven pupil expression. */
+function computePupilScale(
+  metabolism: number,
+  baseSize: number,
+): { size: number; yOffset: number } {
+  if (metabolism > 1.2) {
+    // Alert: large pupils
+    return { size: baseSize * (1.0 + (metabolism - 1.2) * 0.4), yOffset: 0 };
+  }
+  if (metabolism < 0.5) {
+    // Sleepy: small droopy pupils
+    return { size: baseSize * 0.7, yOffset: -0.02 };
+  }
+  return { size: baseSize, yOffset: 0 };
+}
+
 // ---------------------------------------------------------------------------
 // Toon material creation
 // ---------------------------------------------------------------------------
@@ -189,155 +218,430 @@ function createToonMaterial(name: string, colour: Color3, scene: Scene): ShaderM
     uniforms: ['worldViewProjection', 'world', 'uColor', 'uLightDir'],
   });
   mat.setVector3('uColor', new Vector3(colour.r, colour.g, colour.b));
-  // Light direction normalised — matches sun direction in scene.ts
   mat.setVector3('uLightDir', new Vector3(0.4, 0.6, 0.2).normalize());
   mat.backFaceCulling = true;
   return mat;
 }
 
 // ---------------------------------------------------------------------------
-// Cute creature mesh builder
+// Mesh builder context (shared helpers for all trophic builders)
+// ---------------------------------------------------------------------------
+
+interface MeshCtx {
+  root: TransformNode;
+  scene: Scene;
+  shadowGenerator: ShadowGenerator;
+  speciesId: string;
+  bodyMat: ShaderMaterial;
+  eyeWhiteMat: ShaderMaterial;
+  pupilMat: ShaderMaterial;
+}
+
+function makeSphere(
+  ctx: MeshCtx,
+  name: string,
+  diameter: number,
+  mat: ShaderMaterial,
+  pos: Vector3,
+  scaleXYZ?: Vector3,
+): Mesh {
+  const m = MeshBuilder.CreateSphere(name, { diameter, segments: 10 }, ctx.scene);
+  m.material = mat;
+  m.position = pos;
+  if (scaleXYZ) m.scaling = scaleXYZ;
+  m.parent = ctx.root;
+  m.metadata = { speciesId: ctx.speciesId, pickable: true };
+  ctx.shadowGenerator.addShadowCaster(m);
+  return m;
+}
+
+function makeCylinder(
+  ctx: MeshCtx,
+  name: string,
+  diameterTop: number,
+  diameterBottom: number,
+  height: number,
+  mat: ShaderMaterial,
+  pos: Vector3,
+): Mesh {
+  const m = MeshBuilder.CreateCylinder(
+    name,
+    { diameterTop, diameterBottom, height, tessellation: 8 },
+    ctx.scene,
+  );
+  m.material = mat;
+  m.position = pos;
+  m.parent = ctx.root;
+  m.metadata = { speciesId: ctx.speciesId, pickable: true };
+  ctx.shadowGenerator.addShadowCaster(m);
+  return m;
+}
+
+function makeTorus(
+  ctx: MeshCtx,
+  name: string,
+  diameter: number,
+  thickness: number,
+  mat: ShaderMaterial,
+  pos: Vector3,
+): Mesh {
+  const m = MeshBuilder.CreateTorus(name, { diameter, thickness, tessellation: 16 }, ctx.scene);
+  m.material = mat;
+  m.position = pos;
+  m.parent = ctx.root;
+  m.metadata = { speciesId: ctx.speciesId, pickable: true };
+  ctx.shadowGenerator.addShadowCaster(m);
+  return m;
+}
+
+// ---------------------------------------------------------------------------
+// Appendage builders (BRF-017 Phase B)
+// ---------------------------------------------------------------------------
+
+/** 4 leg nubs under the body. Speed > 0.8 for mobile creatures. */
+function addLegs(
+  ctx: MeshCtx,
+  s: number,
+  speed: number,
+  _bodyY: number,
+  bodyZOffset: number,
+): void {
+  const legHeight = 0.15 * s * (0.5 + speed * 0.3);
+  const legDiam = 0.08 * s + 0.02 * s;
+  const legSpreadX = 0.15 * s;
+  const legSpreadZ = 0.12 * s + bodyZOffset * 0.3;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      makeCylinder(
+        ctx,
+        'leg',
+        legDiam,
+        legDiam * 1.1,
+        legHeight,
+        ctx.bodyMat,
+        new Vector3(sx * legSpreadX, legHeight * 0.5, sz * legSpreadZ),
+      );
+    }
+  }
+}
+
+/** Cold-tolerance mane (torus around neck). coldTolerance > 0.6. */
+function addMane(ctx: MeshCtx, s: number, coldTol: number, neckY: number): void {
+  const thickness = 0.06 * s * (1 + (coldTol - 0.6) * 2);
+  const diameter = 0.35 * s;
+  makeTorus(ctx, 'mane', diameter, thickness, ctx.bodyMat, new Vector3(0, neckY, 0));
+}
+
+/** Heat-tolerance ear plates. heatTolerance > 0.6. */
+function addEarPlates(
+  ctx: MeshCtx,
+  s: number,
+  heatTol: number,
+  headY: number,
+  headZ: number,
+): void {
+  const earSize = 0.12 * s * (1 + (heatTol - 0.6) * 1.5);
+  for (const side of [-1, 1]) {
+    makeSphere(
+      ctx,
+      'ear',
+      earSize,
+      ctx.bodyMat,
+      new Vector3(side * 0.18 * s, headY + 0.05 * s, headZ),
+      new Vector3(0.3, 0.7, 0.15),
+    );
+  }
+}
+
+/** Predator dorsal crest. speed > 1.2. */
+function addDorsalCrest(ctx: MeshCtx, s: number, bodyY: number): void {
+  makeSphere(
+    ctx,
+    'crest',
+    0.2 * s,
+    ctx.bodyMat,
+    new Vector3(0, bodyY + 0.2 * s, 0),
+    new Vector3(0.15, 0.5, 0.6),
+  );
+}
+
+/** Predator tail. speed > 1.5. */
+function addTail(
+  ctx: MeshCtx,
+  s: number,
+  speed: number,
+  bodyY: number,
+  bodyZStretch: number,
+): void {
+  const tailLen = 0.25 * s * (0.5 + speed * 0.3);
+  makeCylinder(
+    ctx,
+    'tail',
+    0.02 * s,
+    0.05 * s,
+    tailLen,
+    ctx.bodyMat,
+    new Vector3(0, bodyY, -0.2 * s * bodyZStretch - tailLen * 0.5),
+  );
+}
+
+/** Herbivore horn nubs. size > 1.0. */
+function addHorns(ctx: MeshCtx, s: number, headY: number, headZ: number): void {
+  for (const side of [-1, 1]) {
+    makeCylinder(
+      ctx,
+      'horn',
+      0,
+      0.04 * s,
+      0.12 * s,
+      ctx.bodyMat,
+      new Vector3(side * 0.08 * s, headY + 0.12 * s, headZ - 0.02 * s),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Trophic-specific mesh builders (BRF-017)
+// ---------------------------------------------------------------------------
+
+import type { Traits } from '../engine/index.ts';
+
+function buildProducerMesh(ctx: MeshCtx, traits: Traits, s: number): void {
+  // Producer shape variants based on traits
+  const isHotAdapted = traits.heatTolerance > 0.7;
+  const isColdAdapted = traits.coldTolerance > 0.7;
+  const isSmall = traits.size < 0.5;
+  const isTall = traits.size > 1.2;
+
+  if (isHotAdapted) {
+    // Cactus: thick stalk, tiny cap
+    makeCylinder(ctx, 'stalk', 0.35 * s, 0.4 * s, 0.8 * s, ctx.bodyMat, new Vector3(0, 0.4 * s, 0));
+    makeSphere(ctx, 'cap', 0.3 * s, ctx.bodyMat, new Vector3(0, 0.85 * s, 0));
+  } else if (isColdAdapted) {
+    // Conifer: cone-shaped cap on stalk
+    makeCylinder(ctx, 'stalk', 0.2 * s, 0.3 * s, 0.4 * s, ctx.bodyMat, new Vector3(0, 0.2 * s, 0));
+    makeCylinder(ctx, 'cap', 0, 0.5 * s, 0.7 * s, ctx.bodyMat, new Vector3(0, 0.75 * s, 0));
+  } else if (isSmall) {
+    // Low bush: wide flat cap, short stalk
+    makeCylinder(
+      ctx,
+      'stalk',
+      0.2 * s,
+      0.25 * s,
+      0.3 * s,
+      ctx.bodyMat,
+      new Vector3(0, 0.15 * s, 0),
+    );
+    makeSphere(
+      ctx,
+      'cap',
+      0.9 * s,
+      ctx.bodyMat,
+      new Vector3(0, 0.45 * s, 0),
+      new Vector3(1.2, 0.4, 1.2),
+    );
+  } else if (isTall) {
+    // Tall tree: narrow cap, tall stalk
+    makeCylinder(
+      ctx,
+      'stalk',
+      0.15 * s,
+      0.25 * s,
+      1.0 * s,
+      ctx.bodyMat,
+      new Vector3(0, 0.5 * s, 0),
+    );
+    makeSphere(
+      ctx,
+      'cap',
+      0.6 * s,
+      ctx.bodyMat,
+      new Vector3(0, 1.1 * s, 0),
+      new Vector3(0.8, 0.7, 0.8),
+    );
+  } else {
+    // Default mushroom
+    makeCylinder(ctx, 'stalk', 0.3 * s, 0.4 * s, 0.6 * s, ctx.bodyMat, new Vector3(0, 0.3 * s, 0));
+    makeSphere(
+      ctx,
+      'cap',
+      0.9 * s,
+      ctx.bodyMat,
+      new Vector3(0, 0.7 * s, 0),
+      new Vector3(1, 0.6, 1),
+    );
+  }
+
+  // Eyes on the body (slightly adjusted per variant)
+  const eyeY = isSmall ? 0.4 * s : isTall ? 1.0 * s : isColdAdapted ? 0.5 * s : 0.65 * s;
+  const eyeZ = 0.25 * s;
+  const eyeOffset = 0.16 * s;
+  const pupil = computePupilScale(traits.metabolism, 0.08 * s);
+
+  for (const side of [-1, 1]) {
+    makeSphere(ctx, 'eyeW', 0.14 * s, ctx.eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
+    makeSphere(
+      ctx,
+      'pupil',
+      pupil.size,
+      ctx.pupilMat,
+      new Vector3(side * eyeOffset, eyeY + pupil.yOffset * s, eyeZ + 0.04 * s),
+    );
+  }
+}
+
+function buildHerbivoreMesh(ctx: MeshCtx, traits: Traits, s: number): void {
+  const aspect = computeBodyAspect(traits.speed);
+  const headRatio = computeHeadRatio(traits.size);
+  // Trophic posture: herbivores lean back slightly
+  const postureZ = -0.03 * s;
+
+  // Body — chubby, with speed-driven aspect ratio
+  const bodyY = 0.4 * s;
+  makeSphere(
+    ctx,
+    'body',
+    0.8 * s,
+    ctx.bodyMat,
+    new Vector3(0, bodyY, postureZ),
+    new Vector3(aspect.xScale * 0.9, 0.85, aspect.zScale),
+  );
+
+  // Head — allometric: smaller heads on larger creatures
+  const headDiam = 0.8 * s * headRatio;
+  const headY = 0.75 * s;
+  const headZ = 0.25 * s * aspect.zScale + postureZ;
+  makeSphere(ctx, 'head', headDiam, ctx.bodyMat, new Vector3(0, headY, headZ));
+
+  // Eyes — wide apart (prey: wide field of view)
+  const eyeSpacing = 0.15 * s; // wider than predator
+  const eyeY = headY + 0.03 * s;
+  const eyeZ2 = headZ + headDiam * 0.35;
+  const pupil = computePupilScale(traits.metabolism, 0.09 * s);
+  for (const side of [-1, 1]) {
+    makeSphere(ctx, 'eyeW', 0.18 * s, ctx.eyeWhiteMat, new Vector3(side * eyeSpacing, eyeY, eyeZ2));
+    makeSphere(
+      ctx,
+      'pupil',
+      pupil.size,
+      ctx.pupilMat,
+      new Vector3(side * eyeSpacing, eyeY + pupil.yOffset * s, eyeZ2 + 0.06 * s),
+    );
+  }
+
+  // Conditional appendages
+  if (traits.speed > 0.8) addLegs(ctx, s, traits.speed, bodyY, postureZ);
+  if (traits.coldTolerance > 0.6) addMane(ctx, s, traits.coldTolerance, headY - 0.1 * s);
+  if (traits.heatTolerance > 0.6) addEarPlates(ctx, s, traits.heatTolerance, headY, headZ);
+  if (traits.size > 1.0) addHorns(ctx, s, headY, headZ);
+}
+
+function buildPredatorMesh(ctx: MeshCtx, traits: Traits, s: number): void {
+  const aspect = computeBodyAspect(traits.speed);
+  const headRatio = computeHeadRatio(traits.size);
+  // Trophic posture: predators lean forward aggressively
+  const postureZ = 0.05 * s;
+
+  // Body — sleek, with more aggressive speed stretching
+  const bodyY = 0.4 * s;
+  makeSphere(
+    ctx,
+    'body',
+    0.7 * s,
+    ctx.bodyMat,
+    new Vector3(0, bodyY, postureZ),
+    new Vector3(aspect.xScale * 0.75, 0.8, aspect.zScale * 1.1),
+  );
+
+  // Head — allometric + forward-pointing
+  const headDiam = 0.7 * s * headRatio;
+  const headY = 0.6 * s;
+  const headZ = 0.35 * s * aspect.zScale + postureZ;
+  makeSphere(
+    ctx,
+    'head',
+    headDiam,
+    ctx.bodyMat,
+    new Vector3(0, headY, headZ),
+    new Vector3(0.9, 0.85, 1.1),
+  );
+
+  // Eyes — close together and forward (predator: depth perception)
+  const eyeSpacing = 0.08 * s; // narrower than herbivore
+  const eyeY = headY + 0.03 * s;
+  const eyeZ2 = headZ + headDiam * 0.4;
+  const pupil = computePupilScale(traits.metabolism, 0.08 * s);
+  for (const side of [-1, 1]) {
+    makeSphere(ctx, 'eyeW', 0.14 * s, ctx.eyeWhiteMat, new Vector3(side * eyeSpacing, eyeY, eyeZ2));
+    makeSphere(
+      ctx,
+      'pupil',
+      pupil.size,
+      ctx.pupilMat,
+      new Vector3(side * eyeSpacing, eyeY + pupil.yOffset * s, eyeZ2 + 0.05 * s),
+    );
+  }
+
+  // Conditional appendages
+  if (traits.speed > 0.8) addLegs(ctx, s, traits.speed, bodyY, postureZ);
+  if (traits.coldTolerance > 0.6) addMane(ctx, s, traits.coldTolerance, headY - 0.05 * s);
+  if (traits.heatTolerance > 0.6) addEarPlates(ctx, s, traits.heatTolerance, headY, headZ);
+  if (traits.speed > 1.2) addDorsalCrest(ctx, s, bodyY);
+  if (traits.speed > 1.5) addTail(ctx, s, traits.speed, bodyY, aspect.zScale);
+}
+
+// ---------------------------------------------------------------------------
+// Top-level creature mesh builder (BRF-017)
 // ---------------------------------------------------------------------------
 
 function buildCreatureMesh(
   species: SpeciesCluster,
   scene: Scene,
   shadowGenerator: ShadowGenerator,
+  individualIndex = 0,
 ): TransformNode {
-  const colour = computeColour(species);
-  const scale = computeScale(species);
+  // Per-individual variation (Phase C)
+  const jitter = hashString(species.id + String(individualIndex));
+  const scaleJitter = 1.0 + ((jitter % 100) / 100 - 0.5) * 0.1; // ±5%
+  const hueJitter = ((jitter % 60) - 30) / 10; // ±3°
+
+  const colour = computeColour(species, hueJitter);
+  const scale = computeScale(species) * scaleJitter;
   const traits = expressTraits(species.genome);
   const root = new TransformNode('creature_' + species.id, scene);
 
-  const bodyMat = createToonMaterial('body_' + species.id, colour, scene);
-  const eyeWhiteMat = createToonMaterial('eyeW_' + species.id, new Color3(1, 1, 1), scene);
+  const bodyMat = createToonMaterial(
+    'body_' + species.id + '_' + String(individualIndex),
+    colour,
+    scene,
+  );
+  const eyeWhiteMat = createToonMaterial(
+    'eyeW_' + species.id + '_' + String(individualIndex),
+    new Color3(1, 1, 1),
+    scene,
+  );
   const pupilMat = createToonMaterial(
-    'pupil_' + species.id,
+    'pupil_' + species.id + '_' + String(individualIndex),
     new Color3(0.067, 0.067, 0.067),
     scene,
   );
 
-  // Helper to create a sphere mesh parented to root
-  const makeSphere = (
-    name: string,
-    diameter: number,
-    mat: ShaderMaterial,
-    pos: Vector3,
-    scaleXYZ?: Vector3,
-  ): Mesh => {
-    const m = MeshBuilder.CreateSphere(name, { diameter, segments: 10 }, scene);
-    m.material = mat;
-    m.position = pos;
-    if (scaleXYZ) m.scaling = scaleXYZ;
-    m.parent = root;
-    m.metadata = { speciesId: species.id, pickable: true };
-    shadowGenerator.addShadowCaster(m);
-    return m;
-  };
-
-  // Helper to create a cylinder mesh parented to root
-  const makeCylinder = (
-    name: string,
-    diameterTop: number,
-    diameterBottom: number,
-    height: number,
-    mat: ShaderMaterial,
-    pos: Vector3,
-  ): Mesh => {
-    const m = MeshBuilder.CreateCylinder(
-      name,
-      { diameterTop, diameterBottom, height, tessellation: 8 },
-      scene,
-    );
-    m.material = mat;
-    m.position = pos;
-    m.parent = root;
-    m.metadata = { speciesId: species.id, pickable: true };
-    shadowGenerator.addShadowCaster(m);
-    return m;
+  const ctx: MeshCtx = {
+    root,
+    scene,
+    shadowGenerator,
+    speciesId: species.id,
+    bodyMat,
+    eyeWhiteMat,
+    pupilMat,
   };
 
   if (species.trophicLevel === 'producer') {
-    // Mushroom-like: short stalk + round cap
-    makeCylinder(
-      'stalk',
-      0.3 * scale,
-      0.4 * scale,
-      0.6 * scale,
-      bodyMat,
-      new Vector3(0, 0.3 * scale, 0),
-    );
-    makeSphere('cap', 0.9 * scale, bodyMat, new Vector3(0, 0.7 * scale, 0), new Vector3(1, 0.6, 1));
-
-    // Eyes on the cap
-    const eyeOffset = 0.18 * scale;
-    const eyeY = 0.65 * scale;
-    const eyeZ = 0.3 * scale;
-    for (const side of [-1, 1]) {
-      makeSphere('eyeW', 0.16 * scale, eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
-      makeSphere(
-        'pupil',
-        0.08 * scale,
-        pupilMat,
-        new Vector3(side * eyeOffset, eyeY, eyeZ + 0.05 * scale),
-      );
-    }
+    buildProducerMesh(ctx, traits, scale);
   } else if (species.trophicLevel === 'herbivore') {
-    // Chubby round body + large head
-    const stretch = 0.8 + traits.speed * 0.15;
-    makeSphere(
-      'body',
-      0.8 * scale,
-      bodyMat,
-      new Vector3(0, 0.4 * scale, 0),
-      new Vector3(0.9, 0.85, stretch),
-    );
-    makeSphere('head', 0.64 * scale, bodyMat, new Vector3(0, 0.75 * scale, 0.25 * scale * stretch));
-
-    // Eyes
-    const eyeOffset = 0.12 * scale;
-    const eyeY = 0.78 * scale;
-    const eyeZ = 0.25 * scale * stretch + 0.2 * scale;
-    for (const side of [-1, 1]) {
-      makeSphere('eyeW', 0.18 * scale, eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
-      makeSphere(
-        'pupil',
-        0.09 * scale,
-        pupilMat,
-        new Vector3(side * eyeOffset, eyeY, eyeZ + 0.06 * scale),
-      );
-    }
+    buildHerbivoreMesh(ctx, traits, scale);
   } else {
-    // Predator: sleek body, forward-leaning head
-    const stretch = 0.9 + traits.speed * 0.2;
-    makeSphere(
-      'body',
-      0.7 * scale,
-      bodyMat,
-      new Vector3(0, 0.4 * scale, 0),
-      new Vector3(0.75, 0.8, stretch),
-    );
-    makeSphere(
-      'head',
-      0.5 * scale,
-      bodyMat,
-      new Vector3(0, 0.6 * scale, 0.35 * scale * stretch),
-      new Vector3(0.9, 0.85, 1.1),
-    );
-
-    // Eyes — slightly narrower
-    const eyeOffset = 0.1 * scale;
-    const eyeY = 0.63 * scale;
-    const eyeZ = 0.35 * scale * stretch + 0.18 * scale;
-    for (const side of [-1, 1]) {
-      makeSphere('eyeW', 0.14 * scale, eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
-      makeSphere(
-        'pupil',
-        0.08 * scale,
-        pupilMat,
-        new Vector3(side * eyeOffset, eyeY, eyeZ + 0.05 * scale),
-      );
-    }
+    buildPredatorMesh(ctx, traits, scale);
   }
 
   return root;
@@ -472,7 +776,7 @@ export class CreatureManager {
   }
 
   private spawnCreature(species: SpeciesCluster, index: number): CreatureInstance | null {
-    const mesh = buildCreatureMesh(species, this.scene, this.shadowGenerator);
+    const mesh = buildCreatureMesh(species, this.scene, this.shadowGenerator, index);
     const pos = this.pickSpawnPosition(species, index);
     if (!pos) {
       this.disposeCreatureMesh(mesh);
@@ -549,9 +853,19 @@ export class CreatureManager {
       creature.mesh.position.y += Math.sin(time * 6 + creature.facingAngle * 3) * 0.08;
     }
 
+    // Breathing animation — subtle Y oscillation, speed from metabolism (BRF-017)
+    const breathRate = 2 + (creature.speed / BASE_MOVE_SPEED) * 2;
+    const breathAmp = 0.025;
+    creature.mesh.position.y += Math.sin(time * breathRate + creature.facingAngle) * breathAmp;
+
     // Gentle sway for producers
     if (creature.trophicLevel === 'producer') {
       creature.mesh.rotation.z = Math.sin(time * 1.5 + creature.position.x) * 0.06;
+    }
+
+    // Herbivore idle: periodic "look around" (BRF-017)
+    if (creature.trophicLevel === 'herbivore' && creature.state === 'idle') {
+      creature.mesh.rotation.y += Math.sin(time * 0.8 + creature.position.z * 2) * 0.3;
     }
   }
 
