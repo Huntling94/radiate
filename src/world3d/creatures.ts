@@ -84,7 +84,7 @@ function ensureToonShader(): void {
       vec3 n = normalize(vNormalW);
       float NdotL = max(dot(n, uLightDir), 0.0);
       float toon = floor(NdotL * 3.0 + 0.5) / 3.0;
-      vec3 finalColor = uColor * (0.35 + 0.65 * toon);
+      vec3 finalColor = uColor * (0.45 + 0.55 * toon);
       gl_FragColor = vec4(finalColor, 1.0);
     }
   `;
@@ -163,14 +163,14 @@ function computeColour(species: SpeciesCluster, hueJitter = 0): Color3 {
   const hueShift = (traits.heatTolerance - traits.coldTolerance) * 15;
   const speciesHueOffset = (hashString(species.id) % 30) - 15;
   const hue = (((baseHue + hueShift + speciesHueOffset + hueJitter) % 360) + 360) % 360;
-  const saturation = 0.5 + Math.min(0.4, traits.metabolism * 0.2);
-  const lightness = 0.4 + Math.min(0.2, traits.size * 0.08);
+  const saturation = 0.65 + Math.min(0.25, traits.metabolism * 0.12); // vibrant (was 0.5-0.6)
+  const lightness = 0.5 + Math.min(0.15, traits.size * 0.06); // brighter (was 0.4-0.45)
   return hslToColor3(hue, saturation, lightness);
 }
 
 function computeScale(species: SpeciesCluster): number {
   const traits = expressTraits(species.genome);
-  return 0.4 + traits.size * 0.4;
+  return 0.8 + traits.size * 0.6; // range 0.8–2.0 (was 0.4–0.8, too small)
 }
 
 function computeSpeed(species: SpeciesCluster): number {
@@ -460,32 +460,40 @@ function buildProducerMesh(ctx: MeshCtx, traits: Traits, s: number): void {
       new Vector3(0.8, 0.7, 0.8),
     );
   } else {
-    // Default mushroom
-    makeCylinder(ctx, 'stalk', 0.3 * s, 0.4 * s, 0.6 * s, ctx.bodyMat, new Vector3(0, 0.3 * s, 0));
+    // Default mushroom — pronounced cap
+    makeCylinder(
+      ctx,
+      'stalk',
+      0.25 * s,
+      0.35 * s,
+      0.6 * s,
+      ctx.bodyMat,
+      new Vector3(0, 0.3 * s, 0),
+    );
     makeSphere(
       ctx,
       'cap',
-      0.9 * s,
+      1.0 * s,
       ctx.bodyMat,
-      new Vector3(0, 0.7 * s, 0),
-      new Vector3(1, 0.6, 1),
+      new Vector3(0, 0.75 * s, 0),
+      new Vector3(1.1, 0.55, 1.1),
     );
   }
 
-  // Eyes on the body (slightly adjusted per variant)
-  const eyeY = isSmall ? 0.4 * s : isTall ? 1.0 * s : isColdAdapted ? 0.5 * s : 0.65 * s;
-  const eyeZ = 0.25 * s;
-  const eyeOffset = 0.16 * s;
-  const pupil = computePupilScale(traits.metabolism, 0.08 * s);
+  // Eyes on the body — scaled up for visibility
+  const eyeY = isSmall ? 0.4 * s : isTall ? 1.0 * s : isColdAdapted ? 0.5 * s : 0.7 * s;
+  const eyeZ = 0.3 * s;
+  const eyeOffset = 0.18 * s;
+  const pupil = computePupilScale(traits.metabolism, 0.1 * s);
 
   for (const side of [-1, 1]) {
-    makeSphere(ctx, 'eyeW', 0.14 * s, ctx.eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
+    makeSphere(ctx, 'eyeW', 0.18 * s, ctx.eyeWhiteMat, new Vector3(side * eyeOffset, eyeY, eyeZ));
     makeSphere(
       ctx,
       'pupil',
       pupil.size,
       ctx.pupilMat,
-      new Vector3(side * eyeOffset, eyeY + pupil.yOffset * s, eyeZ + 0.04 * s),
+      new Vector3(side * eyeOffset, eyeY + pupil.yOffset * s, eyeZ + 0.05 * s),
     );
   }
 }
@@ -497,35 +505,35 @@ function buildHerbivoreMesh(ctx: MeshCtx, traits: Traits, s: number): void {
   const postureZ = -0.03 * s;
 
   // Body — chubby, with speed-driven aspect ratio
-  const bodyY = 0.4 * s;
+  const bodyY = 0.35 * s;
   makeSphere(
     ctx,
     'body',
-    0.8 * s,
+    0.75 * s,
     ctx.bodyMat,
     new Vector3(0, bodyY, postureZ),
     new Vector3(aspect.xScale * 0.9, 0.85, aspect.zScale),
   );
 
-  // Head — allometric: smaller heads on larger creatures
-  const headDiam = 0.8 * s * headRatio;
-  const headY = 0.75 * s;
-  const headZ = 0.25 * s * aspect.zScale + postureZ;
+  // Head — allometric, lifted above body with visible neck gap
+  const headDiam = 0.7 * s * headRatio;
+  const headY = 0.85 * s; // lifted higher for neck separation
+  const headZ = 0.15 * s * aspect.zScale + postureZ;
   makeSphere(ctx, 'head', headDiam, ctx.bodyMat, new Vector3(0, headY, headZ));
 
-  // Eyes — wide apart (prey: wide field of view)
-  const eyeSpacing = 0.15 * s; // wider than predator
-  const eyeY = headY + 0.03 * s;
-  const eyeZ2 = headZ + headDiam * 0.35;
-  const pupil = computePupilScale(traits.metabolism, 0.09 * s);
+  // Eyes — wide apart (prey: wide field of view), scaled up for visibility
+  const eyeSpacing = 0.16 * s;
+  const eyeY = headY + 0.04 * s;
+  const eyeZ2 = headZ + headDiam * 0.38;
+  const pupil = computePupilScale(traits.metabolism, 0.12 * s);
   for (const side of [-1, 1]) {
-    makeSphere(ctx, 'eyeW', 0.18 * s, ctx.eyeWhiteMat, new Vector3(side * eyeSpacing, eyeY, eyeZ2));
+    makeSphere(ctx, 'eyeW', 0.22 * s, ctx.eyeWhiteMat, new Vector3(side * eyeSpacing, eyeY, eyeZ2));
     makeSphere(
       ctx,
       'pupil',
       pupil.size,
       ctx.pupilMat,
-      new Vector3(side * eyeSpacing, eyeY + pupil.yOffset * s, eyeZ2 + 0.06 * s),
+      new Vector3(side * eyeSpacing, eyeY + pupil.yOffset * s, eyeZ2 + 0.07 * s),
     );
   }
 
@@ -543,20 +551,20 @@ function buildPredatorMesh(ctx: MeshCtx, traits: Traits, s: number): void {
   const postureZ = 0.05 * s;
 
   // Body — sleek, with more aggressive speed stretching
-  const bodyY = 0.4 * s;
+  const bodyY = 0.35 * s;
   makeSphere(
     ctx,
     'body',
-    0.7 * s,
+    0.65 * s,
     ctx.bodyMat,
     new Vector3(0, bodyY, postureZ),
     new Vector3(aspect.xScale * 0.75, 0.8, aspect.zScale * 1.1),
   );
 
-  // Head — allometric + forward-pointing
-  const headDiam = 0.7 * s * headRatio;
-  const headY = 0.6 * s;
-  const headZ = 0.35 * s * aspect.zScale + postureZ;
+  // Head — allometric + forward-pointing, lifted for neck separation
+  const headDiam = 0.6 * s * headRatio;
+  const headY = 0.72 * s; // lifted higher
+  const headZ = 0.3 * s * aspect.zScale + postureZ;
   makeSphere(
     ctx,
     'head',
@@ -566,19 +574,19 @@ function buildPredatorMesh(ctx: MeshCtx, traits: Traits, s: number): void {
     new Vector3(0.9, 0.85, 1.1),
   );
 
-  // Eyes — close together and forward (predator: depth perception)
-  const eyeSpacing = 0.08 * s; // narrower than herbivore
-  const eyeY = headY + 0.03 * s;
-  const eyeZ2 = headZ + headDiam * 0.4;
-  const pupil = computePupilScale(traits.metabolism, 0.08 * s);
+  // Eyes — close together and forward (predator: depth perception), scaled up
+  const eyeSpacing = 0.1 * s;
+  const eyeY = headY + 0.04 * s;
+  const eyeZ2 = headZ + headDiam * 0.42;
+  const pupil = computePupilScale(traits.metabolism, 0.1 * s);
   for (const side of [-1, 1]) {
-    makeSphere(ctx, 'eyeW', 0.14 * s, ctx.eyeWhiteMat, new Vector3(side * eyeSpacing, eyeY, eyeZ2));
+    makeSphere(ctx, 'eyeW', 0.18 * s, ctx.eyeWhiteMat, new Vector3(side * eyeSpacing, eyeY, eyeZ2));
     makeSphere(
       ctx,
       'pupil',
       pupil.size,
       ctx.pupilMat,
-      new Vector3(side * eyeSpacing, eyeY + pupil.yOffset * s, eyeZ2 + 0.05 * s),
+      new Vector3(side * eyeSpacing, eyeY + pupil.yOffset * s, eyeZ2 + 0.06 * s),
     );
   }
 
