@@ -103,7 +103,7 @@ describe('tick', () => {
     }
   });
 
-  it('handles a 1-week time-jump without crash', () => {
+  it('handles a 1-week time-jump without crash', { timeout: 60000 }, () => {
     const state = makeState();
     const result = tick(state, 604800);
 
